@@ -39,18 +39,19 @@ app.use(cors({
 }))
 
 // ── Rate Limiting ────────────────────────────────────────────
-const isDev = process.env.NODE_ENV === 'development'
+// production 환경에서만 rate limit 활성화 (dev/undefined 모두 skip)
+const isProduction = process.env.NODE_ENV === 'production'
 
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
-  skip: () => isDev,   // 개발 환경에서는 rate limit 비활성화
+  skip: () => !isProduction,
   message: { success: false, error: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' },
 })
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
-  skip: () => isDev,   // 개발 환경에서는 rate limit 비활성화
+  skip: () => !isProduction,
   message: { success: false, error: '너무 많은 인증 시도입니다. 잠시 후 다시 시도해주세요.' },
 })
 app.use('/api', generalLimiter)

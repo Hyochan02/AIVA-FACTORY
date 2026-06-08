@@ -6,6 +6,7 @@
  * GET /search    - 통합 검색
  */
 import { Router } from 'express'
+import jwt from 'jsonwebtoken'
 import { pool } from '../config/database'
 
 const router = Router()
@@ -66,18 +67,31 @@ router.get('/creators', async (req, res, next) => {
     const { page = 1, limit = 20 } = req.query
     const offset = (Number(page) - 1) * Number(limit)
 
+    // 토큰이 있으면 현재 유저 ID 추출 (선택적 인증)
+    let currentUserId: string | null = null
+    const auth = req.headers.authorization
+    if (auth?.startsWith('Bearer ')) {
+      try {
+        const decoded = jwt.verify(auth.split(' ')[1], process.env.JWT_SECRET!) as { id: string }
+        currentUserId = decoded.id
+      } catch { /* 토큰 만료/불량 → 비로그인으로 처리 */ }
+    }
+
     const [items] = await pool.query(
       `SELECT u.id, u.name, u.avatar_url,
-              COUNT(DISTINCT t.id)  as track_count,
-              COALESCE(SUM(t.play_count),0) as total_plays,
-              (SELECT COUNT(*) FROM follows WHERE following_id = u.id) as followers
+              COUNT(DISTINCT t.id) AS track_count,
+              COALESCE(SUM(t.play_count), 0) AS total_plays,
+              (SELECT COUNT(*) FROM follows WHERE following_id = u.id) AS followers,
+              CASE WHEN ? IS NULL THEN 0
+                   ELSE (SELECT COUNT(*) FROM follows WHERE follower_id = ? AND following_id = u.id)
+              END AS is_following
        FROM users u
-       LEFT JOIN tracks t ON t.user_id = u.id AND t.is_public = 1
+       LEFT JOIN tracks t ON t.user_id = u.id
        WHERE u.is_active = 1
        GROUP BY u.id
        ORDER BY total_plays DESC
        LIMIT ? OFFSET ?`,
-      [Number(limit), offset]
+      [currentUserId, currentUserId, Number(limit), offset]
     )
 
     res.json({ success: true, data: { items } })

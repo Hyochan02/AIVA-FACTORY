@@ -3,7 +3,6 @@ import React, { useEffect, useRef, useState } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { Button } from '../components/common/Button'
 import { Badge } from '../components/common/Badge'
-import { Waveform } from '../components/common/Waveform'
 import { getTrack, likeTrack, unlikeTrack, getComments, postComment } from '../api/tracks'
 
 interface Version {
@@ -26,8 +25,9 @@ const Player: React.FC = () => {
 
   // 플레이어 상태
   const audioRef                  = useRef<HTMLAudioElement>(null)
+  const durationRef               = useRef(0)   // 클로저 문제 없이 항상 최신 duration 참조
   const [isPlaying, setIsPlaying] = useState(false)
-  const [progress, setProgress]   = useState(0)    // 0~1
+  const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration]   = useState(0)
   const [volume, setVolume]       = useState(0.8)
   const [currentVersion, setCurrentVersion] = useState(initVersion)
@@ -61,31 +61,52 @@ const Player: React.FC = () => {
     getComments(trackId).then((res: any) => setComments(res.data?.items ?? [])).catch(() => {})
   }, [trackId])
 
-  // 오디오 이벤트
+  // duration 변경 시 ref 동기화
+  useEffect(() => { durationRef.current = duration }, [duration])
+
+  // 오디오 이벤트 — loading 끝난 후 <audio>가 DOM에 마운트된 시점에 연결
   useEffect(() => {
+    if (loading) return
     const audio = audioRef.current
     if (!audio) return
-    const onTime  = () => setProgress(audio.duration ? audio.currentTime / audio.duration : 0)
-    const onLoad  = () => setDuration(audio.duration)
-    const onEnd   = () => setIsPlaying(false)
+    const onTime = () => {
+      setCurrentTime(audio.currentTime)
+      if (audio.duration && isFinite(audio.duration) && audio.duration !== durationRef.current) {
+        durationRef.current = audio.duration
+        setDuration(audio.duration)
+      }
+    }
+    const onDuration = () => {
+      if (audio.duration && isFinite(audio.duration)) {
+        durationRef.current = audio.duration
+        setDuration(audio.duration)
+      }
+    }
+    const onEnd = () => setIsPlaying(false)
     audio.addEventListener('timeupdate', onTime)
-    audio.addEventListener('loadedmetadata', onLoad)
+    audio.addEventListener('loadedmetadata', onDuration)
+    audio.addEventListener('durationchange', onDuration)
     audio.addEventListener('ended', onEnd)
     return () => {
       audio.removeEventListener('timeupdate', onTime)
-      audio.removeEventListener('loadedmetadata', onLoad)
+      audio.removeEventListener('loadedmetadata', onDuration)
+      audio.removeEventListener('durationchange', onDuration)
       audio.removeEventListener('ended', onEnd)
     }
-  }, [])
+  }, [loading])
 
   // 볼륨 동기화
   useEffect(() => { if (audioRef.current) audioRef.current.volume = volume }, [volume])
 
-  const currentAudioUrl = versions.find(v => v.version_num === currentVersion)?.audio_url
-    ?? (track?.audio_url as string | undefined)
-    ?? ''
-  const currentImageUrl = versions.find(v => v.version_num === currentVersion)?.image_url
-    ?? (track?.cover_url as string | undefined)
+  const currentVersion_ = versions.find(v => v.version_num === currentVersion)
+  const currentAudioUrl = currentVersion_?.audio_url ?? (track?.audio_url as string | undefined) ?? ''
+  const currentImageUrl = currentVersion_?.image_url ?? (track?.cover_url as string | undefined)
+
+  // Version 데이터에 duration이 있으면 audio 로드 전에도 표시
+  useEffect(() => {
+    const vDuration = currentVersion_?.duration ?? (track?.duration as number | undefined)
+    if (vDuration && vDuration > 0 && !duration) setDuration(vDuration)
+  }, [currentVersion_, track])
 
   const togglePlay = () => {
     const audio = audioRef.current
@@ -96,15 +117,15 @@ const Player: React.FC = () => {
 
   const seekTo = (e: React.MouseEvent<HTMLDivElement>) => {
     const audio = audioRef.current
-    if (!audio || !duration) return
+    const dur = durationRef.current
+    if (!audio || !dur) return
     const rect = e.currentTarget.getBoundingClientRect()
-    const ratio = (e.clientX - rect.left) / rect.width
-    audio.currentTime = ratio * duration
+    audio.currentTime = ((e.clientX - rect.left) / rect.width) * dur
   }
 
   const handleVersionChange = (v: number) => {
     const wasPlaying = isPlaying
-    if (audioRef.current) { audioRef.current.pause(); setIsPlaying(false); setProgress(0) }
+    if (audioRef.current) { audioRef.current.pause(); setIsPlaying(false); setCurrentTime(0) }
     setCurrentVersion(v)
     if (wasPlaying) setTimeout(() => { audioRef.current?.play(); setIsPlaying(true) }, 100)
   }
@@ -126,6 +147,13 @@ const Player: React.FC = () => {
       setComments(p => [res.data, ...p])
       setCommentText('')
     } catch {} finally { setCommenting(false) }
+  }
+
+  const progress = duration > 0 ? currentTime / duration : 0
+
+  const fmtDate = (raw: string) => {
+    const d = new Date(raw.replace(' ', 'T'))
+    return isNaN(d.getTime()) ? '' : d.toLocaleDateString('ko-KR')
   }
 
   const fmtTime = (sec: number) =>
@@ -210,26 +238,28 @@ const Player: React.FC = () => {
             </div>
           )}
 
-          {/* 파형 */}
-          <Waveform
-            bars={Array.from({ length: 60 }, () => 0.2 + Math.random() * 0.8)}
-            progress={progress}
-            onSeek={(ratio) => { if (audioRef.current && duration) audioRef.current.currentTime = ratio * duration }}
-          />
-
           {/* 시크 바 */}
-          <div
-            className="h-2 bg-[#080c2a] rounded-full cursor-pointer overflow-hidden"
-            onClick={seekTo}
-          >
+          <div className="space-y-1.5">
             <div
-              className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full transition-none"
-              style={{ width: `${progress * 100}%` }}
-            />
-          </div>
-          <div className="flex justify-between text-xs text-slate-500">
-            <span>{fmtTime(duration * progress)}</span>
-            <span>{fmtTime(duration)}</span>
+              className="relative h-2 bg-[#080c2a] rounded-full cursor-pointer group"
+              onClick={seekTo}
+            >
+              <div
+                className="h-full bg-linear-to-r from-indigo-500 to-violet-500 rounded-full transition-none"
+                style={{ width: `${progress * 100}%` }}
+              />
+              {/* 드래그 핸들 */}
+              {progress > 0 && (
+                <div
+                  className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white shadow-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+                  style={{ left: `calc(${progress * 100}% - 6px)` }}
+                />
+              )}
+            </div>
+            <div className="flex justify-between text-xs text-slate-500">
+              <span>{fmtTime(currentTime)}</span>
+              <span>{fmtTime(duration)}</span>
+            </div>
           </div>
 
           {/* 컨트롤 */}
@@ -254,7 +284,7 @@ const Player: React.FC = () => {
               {/* 재생/일시정지 */}
               <button
                 onClick={togglePlay}
-                className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-lg shadow-indigo-900/40 hover:scale-105 transition-transform"
+                className="w-12 h-12 rounded-xl bg-linear-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-lg shadow-indigo-900/40 hover:scale-105 transition-transform"
                 aria-label={isPlaying ? '일시정지' : '재생'}
               >
                 {isPlaying
@@ -275,7 +305,7 @@ const Player: React.FC = () => {
                 <a
                   href={currentAudioUrl}
                   download
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[rgba(129,140,248,0.15)] text-xs font-semibold text-slate-400 hover:border-indigo-700/50 hover:text-white transition-all"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary-soft text-xs font-semibold text-slate-400 hover:border-indigo-700/50 hover:text-white transition-all"
                 >
                   ↓ 다운로드
                 </a>
@@ -286,7 +316,7 @@ const Player: React.FC = () => {
       </div>
 
       {/* ─ 댓글 ─ */}
-      <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-6 space-y-5">
+      <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-6 space-y-5">
         <h2 className="text-sm font-bold text-white">댓글 {comments.length > 0 ? `(${comments.length})` : ''}</h2>
 
         {/* 댓글 입력 */}
@@ -296,7 +326,7 @@ const Player: React.FC = () => {
             onChange={e => setCommentText(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleComment() } }}
             placeholder="댓글을 입력하세요..."
-            className="flex-1 bg-[#080c2a] border border-[rgba(129,140,248,0.15)] rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
+            className="flex-1 bg-[#080c2a] border border-primary-soft rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
           />
           <Button variant="primary" size="sm" onClick={handleComment} disabled={commenting || !commentText.trim()}>
             {commenting ? '...' : '등록'}
@@ -316,11 +346,9 @@ const Player: React.FC = () => {
                 <div className="min-w-0">
                   <div className="flex items-baseline gap-2">
                     <span className="text-sm font-bold text-white">{c.user?.name ?? '익명'}</span>
-                    <span className="text-xs text-slate-500">
-                      {new Date(c.created_at).toLocaleDateString('ko-KR')}
-                    </span>
+                    <span className="text-xs text-slate-500">{fmtDate(c.created_at)}</span>
                   </div>
-                  <p className="text-sm text-slate-300 mt-0.5 break-words">{c.content}</p>
+                  <p className="text-sm text-slate-300 mt-0.5 wrap-break-word">{c.content}</p>
                 </div>
               </div>
             ))}

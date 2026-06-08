@@ -4,15 +4,17 @@ import { useNavigate } from 'react-router-dom'
 import { Badge } from '../components/common/Badge'
 import { useApi } from '../hooks/useApi'
 import { getTrending, getRecent, getCreators, searchExplore } from '../api/explore'
+import { followUser, unfollowUser } from '../api/users'
 import { formatPlays, formatDuration, gradColor } from '../utils/format'
 import type { Track, PaginatedResponse } from '../types'
 
 interface Creator {
-  id:        string
-  name:      string
-  trackCount: number
-  followers:  number
-  avatar?:   string
+  id:           string
+  name:         string
+  track_count:  number
+  followers:    number
+  avatar_url?:  string
+  is_following: number  // 0 | 1 (MySQL CASE 반환)
 }
 
 const GENRES = ['전체','Lo-Fi','City Pop','Ambient','Synthwave','K-Pop','EDM','Acoustic','Hip-Hop']
@@ -87,6 +89,54 @@ const Explore: React.FC = () => {
   const recent    = recentData?.items   ?? []
   const searched  = searchData?.items   ?? []
   const creators  = creatorsData?.items ?? []
+
+  // ── 팔로우 상태 (API 응답 기반 초기화 + 낙관적 업데이트) ──
+  const [localCreators, setLocalCreators] = useState<Creator[]>([])
+  const [followLoading, setFollowLoading] = useState<string | null>(null)
+
+  // creators 데이터가 로드되면 로컬 상태에 동기화
+  useEffect(() => {
+    if (creators.length > 0) setLocalCreators(creators)
+  }, [creators])
+
+  const handleFollow = async (creatorId: string) => {
+    if (followLoading) return
+
+    // API 호출 전 현재 상태 스냅샷 (클로저 stale 방지)
+    const snapshot = localCreators.find(c => c.id === creatorId)
+    if (!snapshot) return
+    const wasFollowing = !!snapshot.is_following
+
+    setFollowLoading(creatorId)
+
+    // 낙관적 업데이트: 즉시 UI 반영
+    setLocalCreators(prev => prev.map(c =>
+      c.id !== creatorId ? c : {
+        ...c,
+        is_following: wasFollowing ? 0 : 1,
+        followers:    c.followers + (wasFollowing ? -1 : 1),
+      }
+    ))
+
+    try {
+      if (wasFollowing) {
+        await unfollowUser(creatorId)
+      } else {
+        await followUser(creatorId)
+      }
+    } catch {
+      // 실패 시 스냅샷으로 롤백
+      setLocalCreators(prev => prev.map(c =>
+        c.id !== creatorId ? c : {
+          ...c,
+          is_following: wasFollowing ? 1 : 0,
+          followers:    c.followers + (wasFollowing ? 1 : -1),
+        }
+      ))
+    } finally {
+      setFollowLoading(null)
+    }
+  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
@@ -187,22 +237,35 @@ const Explore: React.FC = () => {
               {creators.length === 0 && (
                 <p className="text-sm text-slate-400 text-center py-4">크리에이터 정보를 불러오는 중...</p>
               )}
-              {creators.map(c => (
-                <div key={c.id} className="flex items-center gap-3 cursor-pointer hover:bg-navy-800/40 rounded-xl p-2 transition-colors">
-                  <div className={`w-10 h-10 rounded-full bg-linear-to-br ${gradColor(c.id)} flex items-center justify-center text-white font-bold shrink-0`}>
-                    {c.name[0].toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-white">@{c.name}</div>
-                    <div className="text-xs text-slate-400">
-                      {c.trackCount}개 트랙 · 팔로워 {formatPlays(c.followers)}
+              {localCreators.map(c => {
+                const isFollowing = !!c.is_following
+                const isLoading   = followLoading === c.id
+                const initial     = [...c.name][0]?.toUpperCase() ?? '?'
+                return (
+                  <div key={c.id} className="flex items-center gap-3 hover:bg-navy-800/40 rounded-xl p-2 transition-colors">
+                    <div className={`w-10 h-10 rounded-full bg-linear-to-br ${gradColor(c.id)} flex items-center justify-center text-white font-bold shrink-0`}>
+                      {initial}
                     </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-white">@{c.name}</div>
+                      <div className="text-xs text-slate-400">
+                        {c.track_count}개 트랙 · 팔로워 {formatPlays(c.followers)}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleFollow(c.id)}
+                      disabled={isLoading}
+                      className={`px-2.5 py-1 text-xs font-semibold rounded-full border transition-all ${
+                        isFollowing
+                          ? 'bg-indigo-600/20 border-indigo-500/60 text-indigo-300'
+                          : 'border-indigo-500/40 text-indigo-300 hover:bg-indigo-600/20'
+                      } ${isLoading ? 'opacity-50' : ''}`}
+                    >
+                      {isLoading ? '...' : isFollowing ? '팔로잉' : '팔로우'}
+                    </button>
                   </div>
-                  <button className="px-2.5 py-1 text-xs font-semibold rounded-full border border-indigo-500/40 text-indigo-300 hover:bg-indigo-600/20 transition-all">
-                    팔로우
-                  </button>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         </div>

@@ -25,8 +25,6 @@ const StatSkeleton = () => (
 const Dashboard: React.FC = () => {
   const navigate    = useNavigate()
   const { user }    = useAuth()
-  const [prompt, setPrompt] = React.useState('')
-
   // ── API 호출 ────────────────────────────────────────────
   const { data: statsData, loading: statsLoading } =
     useApi<DashboardStats>(() => getStats())
@@ -82,19 +80,12 @@ const Dashboard: React.FC = () => {
 
       {/* ── 빠른 생성 ────────────────────────────────────── */}
       <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6">
-        <h2 className="font-bold text-white mb-4">빠른 생성</h2>
-        <div className="flex gap-3 mb-5">
-          <input
-            value={prompt} onChange={e => setPrompt(e.target.value)}
-            className="flex-1 bg-[#080c2a] border border-(--border-color) rounded-[12px] px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
-            placeholder='"비 오는 일요일 오후, 재즈 피아노와 빗소리..."'
-          />
-          <Button variant="primary" onClick={() => navigate('/generating')}>생성</Button>
-        </div>
+        <h2 className="font-bold text-white mb-1">빠른 생성</h2>
+        <p className="text-xs text-slate-400 mb-4">장르를 선택하면 생성 페이지로 이동합니다.</p>
         <div className="flex flex-wrap gap-2">
           {QUICK_GENRES.map(g => (
             <button key={g}
-              onClick={() => setPrompt(g + ' 스타일의 음악')}
+              onClick={() => navigate(`/create?genre=${encodeURIComponent(g)}`)}
               className="px-3 py-1.5 text-xs font-semibold rounded-full border border-(--border-color) text-slate-400 hover:border-indigo-500/60 hover:text-indigo-300 transition-all">
               {g}
             </button>

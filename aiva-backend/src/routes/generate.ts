@@ -222,12 +222,12 @@ router.get('/:trackId/status', async (req, res, next) => {
             )
           }
 
-          // 메인 트랙에 첫 번째 버전 URL 저장
+          // 메인 트랙에 첫 번째 버전 URL + 실제 재생시간 저장
           const first = sunoData[0]
           if (first) {
             await conn.query(
-              "UPDATE tracks SET status = 'done', audio_url = ?, cover_url = ? WHERE id = ?",
-              [first.audioUrl, first.imageUrl, track.id]
+              "UPDATE tracks SET status = 'done', audio_url = ?, cover_url = ?, duration = ? WHERE id = ?",
+              [first.audioUrl, first.imageUrl, Math.round(first.duration ?? 0), track.id]
             )
           }
 
@@ -323,8 +323,8 @@ router.post('/callback', async (req, res) => {
       const first = sunoData[0]
       if (first) {
         await conn.query(
-          "UPDATE tracks SET status = 'done', audio_url = ?, cover_url = ? WHERE id = ?",
-          [first.audioUrl, first.imageUrl, track.id]
+          "UPDATE tracks SET status = 'done', audio_url = ?, cover_url = ?, duration = ? WHERE id = ?",
+          [first.audioUrl, first.imageUrl, Math.round(first.duration ?? 0), track.id]
         )
       }
     } finally { conn.release() }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '../components/common/Button'
 import { Toggle } from '../components/common/Toggle'
 import { startGenerate } from '../api/generate'
@@ -11,8 +11,10 @@ const DURATION_MAP: Record<string, number> = { '30초': 30, '1분': 60, '2분': 
 
 const Create: React.FC = () => {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const initGenre = searchParams.get('genre') ?? ''
   const [prompt, setPrompt]               = useState('')
-  const [selectedGenres, setSelectedGenres] = useState<string[]>([])
+  const [selectedGenres, setSelectedGenres] = useState<string[]>(initGenre ? [initGenre] : [])
   const [selectedMood, setSelectedMood]   = useState('')
   const [selectedInstruments, setSelectedInstruments] = useState<string[]>([])
   const [bpm, setBpm]                     = useState(120)

@@ -68,3 +68,16 @@ export const createVideo = (payload: VideoPayload) =>
 
 export const pollVideo = (jobId: string) =>
   apiClient.get(`/editor/video/${jobId}`)
+
+export interface JobHistory {
+  id: string
+  type: 'extend' | 'lyrics' | 'separate' | 'wav' | 'video'
+  status: 'pending' | 'done' | 'error'
+  result_url?: string
+  extra?: string
+  created_at: string
+  track_title?: string
+}
+
+export const getJobHistory = () =>
+  apiClient.get('/editor/jobs')

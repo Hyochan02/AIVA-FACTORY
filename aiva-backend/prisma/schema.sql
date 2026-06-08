@@ -198,6 +198,7 @@ ALTER TABLE track_versions
 CREATE TABLE IF NOT EXISTS suno_jobs (
   id            VARCHAR(36)  PRIMARY KEY,
   track_id      VARCHAR(36),                            -- NULL 허용 (lyrics는 트랙 무관)
+  user_id       VARCHAR(36),                            -- 소유자 (직접 저장, track 없는 경우도 대응)
   type          ENUM('extend','lyrics','separate','wav','video') NOT NULL,
   suno_task_id  VARCHAR(255) NOT NULL,
   status        ENUM('pending','done','error') DEFAULT 'pending',
@@ -206,7 +207,8 @@ CREATE TABLE IF NOT EXISTS suno_jobs (
   created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_suno_task (suno_task_id),
-  INDEX idx_track_id  (track_id)
+  INDEX idx_track_id  (track_id),
+  INDEX idx_user_id   (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ─────────────────────────────────────────────────────────

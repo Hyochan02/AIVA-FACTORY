@@ -45,14 +45,14 @@ const isProduction = process.env.NODE_ENV === 'production'
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
-  skip: () => !isProduction,
+  skip: () => true,              // rate limit 비활성화 (개발/포트폴리오용)
   message: { success: false, error: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' },
 })
 const authLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000,       // 5분 창 (15분 → 5분으로 단축)
-  max: 30,                        // 5분에 30번 (실패 시도만 카운트)
-  skipSuccessfulRequests: true,   // 로그인 성공 요청은 카운트 안 함
-  skip: () => !isProduction,
+  windowMs: 5 * 60 * 1000,
+  max: 30,
+  skipSuccessfulRequests: true,
+  skip: () => true,              // rate limit 비활성화
   message: { success: false, error: '너무 많은 인증 시도입니다. 5분 후 다시 시도해주세요.' },
 })
 app.use('/api', generalLimiter)

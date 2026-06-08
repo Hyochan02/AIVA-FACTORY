@@ -35,7 +35,7 @@ const socialSchema = z.object({
 
 // ── JWT 발급 헬퍼 ─────────────────────────────────────────
 function signToken(payload: object) {
-  return jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: '7d' })
+  return jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: '30d' })
 }
 
 // ── POST /api/auth/register ────────────────────────────────

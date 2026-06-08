@@ -10,10 +10,14 @@ const authHeader = (): Record<string, string> => {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
-const handleRes = async (res: Response) => {
+const handleRes = async (res: Response, path?: string) => {
   if (res.status === 401) {
-    localStorage.removeItem('aiva_token')
-    window.location.href = '/login'
+    // /auth 경로(로그인·회원가입) 외에는 토큰 삭제 안 함 — 컨테이너 재시작 등 일시적 오류로 강제 로그아웃되지 않도록
+    const isAuthRoute = path?.startsWith('/auth')
+    if (isAuthRoute) {
+      localStorage.removeItem('aiva_token')
+      window.location.href = '/login'
+    }
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: res.statusText }))
@@ -26,34 +30,34 @@ const apiClient = {
   get: (path: string) =>
     fetch(`${BASE_URL}${path}`, {
       headers: { 'Content-Type': 'application/json', ...authHeader() },
-    }).then(handleRes),
+    }).then(r => handleRes(r, path)),
 
   post: (path: string, body?: unknown) =>
     fetch(`${BASE_URL}${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeader() },
       body: JSON.stringify(body),
-    }).then(handleRes),
+    }).then(r => handleRes(r, path)),
 
   patch: (path: string, body?: unknown) =>
     fetch(`${BASE_URL}${path}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...authHeader() },
       body: JSON.stringify(body),
-    }).then(handleRes),
+    }).then(r => handleRes(r, path)),
 
   put: (path: string, body?: unknown) =>
     fetch(`${BASE_URL}${path}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', ...authHeader() },
       body: JSON.stringify(body),
-    }).then(handleRes),
+    }).then(r => handleRes(r, path)),
 
   delete: (path: string) =>
     fetch(`${BASE_URL}${path}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json', ...authHeader() },
-    }).then(handleRes),
+    }).then(r => handleRes(r, path)),
 }
 
 export default apiClient

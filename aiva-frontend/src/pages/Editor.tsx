@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Music2, FileText, Mic, HardDrive, Film } from 'lucide-react'
+import { Music2, FileText, Mic, HardDrive, Film, ChevronDown } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { Button } from '../components/common/Button'
 import { getTracks } from '../api/tracks'
@@ -216,15 +216,18 @@ const Editor: React.FC = () => {
               {tracks.length === 0 ? (
                 <p className="text-slate-500 text-sm">완료된 트랙이 없습니다. 먼저 음악을 생성해주세요.</p>
               ) : (
-                <select
-                  value={selectedTrackId}
-                  onChange={e => setSelectedTrackId(e.target.value)}
-                  className="w-full bg-[#080c2a] border border-primary-soft rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
-                >
-                  {tracks.map(t => (
-                    <option key={t.id} value={t.id}>{t.title} {t.genre ? `(${t.genre})` : ''}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    value={selectedTrackId}
+                    onChange={e => setSelectedTrackId(e.target.value)}
+                    className="w-full appearance-none bg-[#080c2a] border border-primary-soft rounded-xl px-4 py-2.5 pr-10 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer"
+                  >
+                    {tracks.map(t => (
+                      <option key={t.id} value={t.id}>{t.title} {t.genre ? `(${t.genre})` : ''}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                </div>
               )}
             </div>
           )}

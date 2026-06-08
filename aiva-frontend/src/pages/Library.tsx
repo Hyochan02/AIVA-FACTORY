@@ -6,7 +6,7 @@ import { Button } from '../components/common/Button'
 import { Waveform } from '../components/common/Waveform'
 import { useApi } from '../hooks/useApi'
 import { getTracks, updateTrack } from '../api/tracks'
-import { formatDuration, formatPlays, gradColor } from '../utils/format'
+import { formatDuration, gradColor } from '../utils/format'
 import type { Track, PaginatedResponse } from '../types'
 
 const FILTERS = ['전체', 'Lo-Fi', 'City Pop', 'Ambient', 'Synthwave', 'K-Pop', 'EDM', 'Jazz', 'Acoustic', 'Hip-Hop', 'Classical', 'R&B', 'Drum & Bass']
@@ -193,25 +193,26 @@ const Library: React.FC = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-semibold text-white truncate">{t.title}</div>
-                    <div className="text-xs text-slate-400">{t.genre}</div>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-xs text-slate-400">{t.genre}</span>
+                      <button
+                        onClick={e => handleVisibilityToggle(e, t)}
+                        disabled={togglingId === t.id}
+                        className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold border transition-all ${
+                          (t as Track & { is_public?: number }).is_public
+                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
+                            : 'bg-slate-700/40 border-slate-600/30 text-slate-400 hover:bg-slate-700/70'
+                        } ${togglingId === t.id ? 'opacity-50' : ''}`}
+                      >
+                        {(t as Track & { is_public?: number }).is_public
+                          ? <><Globe size={8} /><span className="ml-0.5">공개</span></>
+                          : <><Lock size={8} /><span className="ml-0.5">비공개</span></>
+                        }
+                      </button>
+                    </div>
                   </div>
                   <Waveform className="w-20 hidden md:flex" />
-                  <span className="text-xs text-slate-500 hidden sm:block">▶ {formatPlays((t as any).plays ?? (t as any).play_count ?? 0)}</span>
                   <span className="text-xs text-slate-400">{formatDuration(t.duration)}</span>
-                  <button
-                    onClick={e => handleVisibilityToggle(e, t)}
-                    disabled={togglingId === t.id}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
-                      (t as Track & { is_public?: number }).is_public
-                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
-                        : 'bg-slate-700/40 border-slate-600/30 text-slate-400 hover:bg-slate-700/70'
-                    } ${togglingId === t.id ? 'opacity-50' : ''}`}
-                  >
-                    {(t as Track & { is_public?: number }).is_public
-                      ? <><Globe size={10} /><span className="hidden sm:inline ml-0.5">공개</span></>
-                      : <><Lock size={10} /><span className="hidden sm:inline ml-0.5">비공개</span></>
-                    }
-                  </button>
                   <Button variant="secondary" size="sm"
                     onClick={e => { e.stopPropagation(); navigate('/editor') }}>
                     편집

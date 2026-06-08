@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '../components/common/Button'
-import apiClient from '../api/client'
+import { resetPassword } from '../api/auth'
 
 const ResetPassword: React.FC = () => {
   const navigate       = useNavigate()
@@ -21,7 +21,7 @@ const ResetPassword: React.FC = () => {
     setError('')
     setLoading(true)
     try {
-      await apiClient.post('/auth/reset-password', { token, newPassword: pw })
+      await resetPassword({ token, newPassword: pw })
       setDone(true)
       setTimeout(() => navigate('/login'), 3000)
     } catch (err: unknown) {

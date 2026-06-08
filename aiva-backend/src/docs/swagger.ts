@@ -34,6 +34,7 @@ const swaggerSpec = {
     { name: 'Subscriptions', description: '요금제 조회 / 구독 관리' },
     { name: 'Notifications', description: '알림 수신 설정' },
     { name: 'Stats',         description: '대시보드 통계 요약' },
+    { name: 'Editor',        description: 'Suno AI 음악 편집 (연장 / 가사 / 보컬 분리 / WAV / 비디오)' },
   ],
 
   // ── 공통 컴포넌트 ──────────────────────────────────────────────
@@ -397,6 +398,63 @@ const swaggerSpec = {
       },
     },
 
+    '/api/auth/forgot-password': {
+      post: {
+        tags: ['Auth'],
+        summary: '비밀번호 재설정 이메일 발송',
+        description:
+          '입력한 이메일로 비밀번호 재설정 링크를 발송합니다.\n\n' +
+          '**보안**: 이메일 존재 여부에 관계없이 항상 동일한 성공 응답을 반환합니다 (이메일 열거 공격 방지).\n\n' +
+          '토큰 유효 시간: **1시간**.',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['email'],
+                properties: {
+                  email: { type: 'string', format: 'email', example: 'user@example.com' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: '항상 성공 (이메일 존재 여부 노출 안 함)', content: { 'application/json': { schema: { '$ref': '#/components/schemas/MessageResponse' } } } },
+        },
+        security: [],
+      },
+    },
+
+    '/api/auth/reset-password': {
+      post: {
+        tags: ['Auth'],
+        summary: '비밀번호 재설정',
+        description: '이메일 링크에 포함된 `token`과 새 비밀번호를 전송하면 비밀번호를 변경합니다.',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['token', 'newPassword'],
+                properties: {
+                  token:       { type: 'string', example: 'abc123def456...' },
+                  newPassword: { type: 'string', minLength: 8, example: 'NewPass1!' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: '비밀번호 변경 완료', content: { 'application/json': { schema: { '$ref': '#/components/schemas/MessageResponse' } } } },
+          400: { description: '토큰 만료 또는 이미 사용된 토큰', content: { 'application/json': { schema: { '$ref': '#/components/schemas/ErrorResponse' } } } },
+        },
+        security: [],
+      },
+    },
+
     // ════════════════════════════════════════════════════════
     // GENERATE
     // ════════════════════════════════════════════════════════
@@ -458,13 +516,13 @@ const swaggerSpec = {
       },
     },
 
-    '/api/generate/{taskId}/status': {
+    '/api/generate/{trackId}/status': {
       get: {
         tags: ['Generate'],
         summary: '생성 진행 상태 폴링',
-        description: '`status`가 `done` 또는 `error`가 될 때까지 **2초 간격**으로 호출하세요.',
+        description: '`status`가 `done` 또는 `error`가 될 때까지 **3초 간격**으로 호출하세요.\n\n완료 시 `data.versions` 배열에 버전 1·2가 포함됩니다.',
         parameters: [
-          { name: 'taskId', in: 'path', required: true, schema: { type: 'string' }, example: 'task_abc123' },
+          { name: 'trackId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'POST /api/generate 응답의 trackId' },
         ],
         responses: {
           200: {
@@ -498,13 +556,13 @@ const swaggerSpec = {
       },
     },
 
-    '/api/generate/{taskId}': {
+    '/api/generate/{trackId}': {
       delete: {
         tags: ['Generate'],
         summary: '생성 취소',
         description: '진행 중인 생성을 취소하고 크레딧 10개를 환불합니다.',
         parameters: [
-          { name: 'taskId', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'trackId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
         ],
         responses: {
           200: { description: '취소 및 크레딧 환불 성공', content: { 'application/json': { schema: { '$ref': '#/components/schemas/MessageResponse' } } } },
@@ -1122,14 +1180,25 @@ const swaggerSpec = {
           401: { '$ref': '#/components/responses/Unauthorized' },
         },
       },
+
       put: {
         tags: ['Notifications'],
         summary: '알림 설정 변경',
+        security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
           content: {
             'application/json': {
-              schema: { '$ref': '#/components/schemas/NotificationSettings' },
+              schema: {
+                type: 'object',
+                properties: {
+                  gen:       { type: 'boolean', description: '생성 완료 알림' },
+                  credit:    { type: 'boolean', description: '크레딧 부족 알림' },
+                  like:      { type: 'boolean', description: '좋아요 알림' },
+                  follow:    { type: 'boolean', description: '팔로우 알림' },
+                  marketing: { type: 'boolean', description: '마케팅 알림' },
+                },
+              },
             },
           },
         },
@@ -1147,7 +1216,8 @@ const swaggerSpec = {
       get: {
         tags: ['Stats'],
         summary: '대시보드 통계',
-        description: '총 트랙 수 / 크레딧 잔액 / 총 재생수 / 보관함 수 / 주간 변화량을 한 번에 반환.',
+        description: '로그인 유저의 트랙 수, 크레딧 잔액, 총 재생 수, 라이브러리 수, 주간 변화량을 반환합니다.',
+        security: [{ bearerAuth: [] }],
         responses: {
           200: {
             description: '통계 조회 성공',
@@ -1183,6 +1253,263 @@ const swaggerSpec = {
           },
           401: { '$ref': '#/components/responses/Unauthorized' },
         },
+      },
+    },
+
+    '/api/generate/callback': {
+      post: {
+        tags: ['Generate'],
+        summary: 'Suno 콜백 수신 (서버→서버)',
+        description:
+          'Suno AI가 생성 완료 시 서버로 직접 호출하는 웹훅 엔드포인트입니다.\n\n' +
+          '**프론트엔드에서 직접 호출하지 않습니다.**',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  code:    { type: 'integer', example: 200 },
+                  msg:     { type: 'string', example: 'SUCCESS' },
+                  data:    {
+                    type: 'object',
+                    properties: {
+                      taskId:       { type: 'string' },
+                      callbackType: { type: 'string', enum: ['text', 'first', 'complete'] },
+                      sunoData:     { type: 'array', items: { type: 'object' } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'OK' },
+        },
+        security: [],
+      },
+    },
+
+    // ════════════════════════════════════════════════════════
+    // EDITOR  (Suno 음악 편집)
+    // ════════════════════════════════════════════════════════
+    '/api/editor/extend': {
+      post: {
+        tags: ['Editor'],
+        summary: '트랙 연장',
+        description: 'Suno AI로 기존 트랙을 이어서 연장합니다. 비동기 — jobId로 폴링하세요.',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['trackId', 'audioId'],
+                properties: {
+                  trackId:    { type: 'string', format: 'uuid' },
+                  audioId:    { type: 'string', description: 'track_versions.suno_audio_id' },
+                  prompt:     { type: 'string', example: '더 어두운 분위기로 이어가기' },
+                  continueAt: { type: 'number', example: 60, description: '이어붙일 시점 (초)' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          202: { description: '연장 작업 등록', content: { 'application/json': { schema: { allOf: [{ '$ref': '#/components/schemas/SuccessResponse' }, { properties: { data: { type: 'object', properties: { jobId: { type: 'string', format: 'uuid' } } } } }] } } } },
+          401: { '$ref': '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+    '/api/editor/extend/{jobId}': {
+      get: {
+        tags: ['Editor'],
+        summary: '트랙 연장 상태 폴링',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'jobId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: {
+          200: { description: '상태 + 결과 URL', content: { 'application/json': { schema: { allOf: [{ '$ref': '#/components/schemas/SuccessResponse' }, { properties: { data: { type: 'object', properties: { status: { type: 'string', enum: ['pending','done','error'] }, resultUrl: { type: 'string', nullable: true } } } } }] } } } },
+          401: { '$ref': '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+
+    '/api/editor/lyrics': {
+      post: {
+        tags: ['Editor'],
+        summary: '가사 생성',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['prompt'],
+                properties: {
+                  prompt: { type: 'string', example: '비오는 날 카페 감성' },
+                  style:  { type: 'string', example: 'Korean Pop' },
+                  title:  { type: 'string', example: '빗소리' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          202: { description: '가사 생성 작업 등록', content: { 'application/json': { schema: { allOf: [{ '$ref': '#/components/schemas/SuccessResponse' }, { properties: { data: { type: 'object', properties: { jobId: { type: 'string', format: 'uuid' } } } } }] } } } },
+          401: { '$ref': '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+    '/api/editor/lyrics/{jobId}': {
+      get: {
+        tags: ['Editor'],
+        summary: '가사 생성 상태 폴링',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'jobId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: {
+          200: { description: '상태 + 가사', content: { 'application/json': { schema: { allOf: [{ '$ref': '#/components/schemas/SuccessResponse' }, { properties: { data: { type: 'object', properties: { status: { type: 'string', enum: ['pending','done','error'] }, title: { type: 'string', nullable: true }, text: { type: 'string', nullable: true } } } } }] } } } },
+          401: { '$ref': '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+
+    '/api/editor/separate': {
+      post: {
+        tags: ['Editor'],
+        summary: '보컬 / 스템 분리',
+        description: '`type: separate_vocal` → 보컬+반주 / `type: split_stem` → 4트랙 스템.',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['audioId', 'type'],
+                properties: {
+                  audioId: { type: 'string' },
+                  type:    { type: 'string', enum: ['separate_vocal', 'split_stem'] },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          202: { description: '분리 작업 등록', content: { 'application/json': { schema: { allOf: [{ '$ref': '#/components/schemas/SuccessResponse' }, { properties: { data: { type: 'object', properties: { jobId: { type: 'string', format: 'uuid' } } } } }] } } } },
+          401: { '$ref': '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+    '/api/editor/separate/{jobId}': {
+      get: {
+        tags: ['Editor'],
+        summary: '보컬/스템 분리 상태 폴링',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'jobId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: {
+          200: { description: '상태 + URL들', content: { 'application/json': { schema: { allOf: [{ '$ref': '#/components/schemas/SuccessResponse' }, { properties: { data: { type: 'object', properties: { status: { type: 'string', enum: ['pending','done','error'] }, vocalUrl: { type: 'string', nullable: true }, instrumentalUrl: { type: 'string', nullable: true }, drumsUrl: { type: 'string', nullable: true }, bassUrl: { type: 'string', nullable: true } } } } }] } } } },
+          401: { '$ref': '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+
+    '/api/editor/wav': {
+      post: {
+        tags: ['Editor'],
+        summary: 'WAV 변환 (Pro 이상)',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['audioId'],
+                properties: {
+                  audioId: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          202: { description: 'WAV 변환 작업 등록', content: { 'application/json': { schema: { allOf: [{ '$ref': '#/components/schemas/SuccessResponse' }, { properties: { data: { type: 'object', properties: { jobId: { type: 'string', format: 'uuid' } } } } }] } } } },
+          401: { '$ref': '#/components/responses/Unauthorized' },
+          403: { description: 'Pro 이상 플랜 필요', content: { 'application/json': { schema: { '$ref': '#/components/schemas/ErrorResponse' } } } },
+        },
+      },
+    },
+    '/api/editor/wav/{jobId}': {
+      get: {
+        tags: ['Editor'],
+        summary: 'WAV 변환 상태 폴링',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'jobId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: {
+          200: { description: '상태 + WAV URL', content: { 'application/json': { schema: { allOf: [{ '$ref': '#/components/schemas/SuccessResponse' }, { properties: { data: { type: 'object', properties: { status: { type: 'string', enum: ['pending','done','error'] }, resultUrl: { type: 'string', nullable: true } } } } }] } } } },
+          401: { '$ref': '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+
+    '/api/editor/video': {
+      post: {
+        tags: ['Editor'],
+        summary: '뮤직비디오 생성',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['audioId'],
+                properties: {
+                  audioId: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          202: { description: '비디오 생성 작업 등록', content: { 'application/json': { schema: { allOf: [{ '$ref': '#/components/schemas/SuccessResponse' }, { properties: { data: { type: 'object', properties: { jobId: { type: 'string', format: 'uuid' } } } } }] } } } },
+          401: { '$ref': '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+    '/api/editor/video/{jobId}': {
+      get: {
+        tags: ['Editor'],
+        summary: '뮤직비디오 생성 상태 폴링',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'jobId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: {
+          200: { description: '상태 + MP4 URL', content: { 'application/json': { schema: { allOf: [{ '$ref': '#/components/schemas/SuccessResponse' }, { properties: { data: { type: 'object', properties: { status: { type: 'string', enum: ['pending','done','error'] }, resultUrl: { type: 'string', nullable: true } } } } }] } } } },
+          401: { '$ref': '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+
+    '/api/editor/callback/{type}': {
+      post: {
+        tags: ['Editor'],
+        summary: 'Suno 에디터 콜백 수신 (서버→서버)',
+        description: 'Suno AI가 편집 작업 완료 시 호출하는 웹훅. **프론트엔드에서 직접 호출 안 함.**',
+        parameters: [
+          { name: 'type', in: 'path', required: true, schema: { type: 'string', enum: ['extend','lyrics','separate','wav','video'] } },
+        ],
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: { type: 'object', properties: { code: { type: 'integer' }, msg: { type: 'string' }, data: { type: 'object' } } } } },
+        },
+        responses: {
+          200: { description: 'OK' },
+        },
+        security: [],
       },
     },
   },

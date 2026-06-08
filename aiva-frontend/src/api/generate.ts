@@ -46,11 +46,11 @@ export interface TrackVersion {
 
 /** 음악 생성 요청 */
 export const startGenerate = (payload: GeneratePayload) =>
-  apiClient.post<GenerateResponse>('/generate', payload)
+  apiClient.post('/generate', payload)
 
 /** 생성 상태 폴링 (3초 간격 권장) */
 export const pollGenerateStatus = (trackId: string) =>
-  apiClient.get<StatusResponse>(`/generate/${trackId}/status`)
+  apiClient.get(`/generate/${trackId}/status`)
 
 /** 생성 취소 */
 export const cancelGenerate = (trackId: string) =>

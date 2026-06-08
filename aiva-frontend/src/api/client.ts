@@ -42,6 +42,13 @@ const apiClient = {
       body: JSON.stringify(body),
     }).then(handleRes),
 
+  put: (path: string, body?: unknown) =>
+    fetch(`${BASE_URL}${path}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...authHeader() },
+      body: JSON.stringify(body),
+    }).then(handleRes),
+
   delete: (path: string) =>
     fetch(`${BASE_URL}${path}`, {
       method: 'DELETE',

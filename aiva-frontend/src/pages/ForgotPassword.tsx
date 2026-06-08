@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '../components/common/Button'
-import apiClient from '../api/client'
+import { forgotPassword } from '../api/auth'
 
 const ForgotPassword: React.FC = () => {
   const [email, setEmail]         = useState('')
@@ -17,7 +17,8 @@ const ForgotPassword: React.FC = () => {
     setLoading(true)
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const res = await apiClient.post('/auth/forgot-password', { email }) as any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const res = await forgotPassword(email) as any
       setSent(true)
       if (res.data?._devToken) setDevToken(res.data._devToken)
     } catch (err: unknown) {

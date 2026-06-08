@@ -26,7 +26,7 @@ export const generateLyrics = (payload: LyricsPayload) =>
   apiClient.post('/editor/lyrics', payload)
 
 export const pollLyrics = (jobId: string) =>
-  apiClient.get<LyricsResult>(`/editor/lyrics/${jobId}`)
+  apiClient.get(`/editor/lyrics/${jobId}`)
 
 // ─ Separate ────────────────────────────────────────────────
 export type SeparateType = 'separate_vocal' | 'split_stem'
@@ -48,7 +48,7 @@ export const separateVocals = (payload: SeparatePayload) =>
   apiClient.post('/editor/separate', payload)
 
 export const pollSeparate = (jobId: string) =>
-  apiClient.get<SeparateResult>(`/editor/separate/${jobId}`)
+  apiClient.get(`/editor/separate/${jobId}`)
 
 // ─ WAV ─────────────────────────────────────────────────────
 export interface WavPayload {

@@ -135,9 +135,9 @@ const Player: React.FC = () => {
       <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
     </div>
   )
-  if (error) return (
+  if (error || !track) return (
     <div className="max-w-xl mx-auto text-center py-16">
-      <p className="text-slate-400 mb-4">{error}</p>
+      <p className="text-slate-400 mb-4">{error || '트랙을 찾을 수 없습니다.'}</p>
       <Button variant="secondary" onClick={() => navigate('/library')}>라이브러리로</Button>
     </div>
   )
@@ -169,9 +169,9 @@ const Player: React.FC = () => {
                 {track?.title as string || '제목 없음'}
               </h1>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
-                {(track?.genre as string) && <Badge variant="info">{track.genre as string}</Badge>}
-                {(track?.mood as string)  && <Badge variant="info">{track.mood as string}</Badge>}
-                {(track?.bpm as number)   && <span className="text-xs text-slate-400">{track.bpm as number} BPM</span>}
+                {(track?.genre as string) && <Badge variant="info">{track?.genre as string}</Badge>}
+                {(track?.mood as string)  && <Badge variant="info">{track?.mood as string}</Badge>}
+                {(track?.bpm as number)   && <span className="text-xs text-slate-400">{track?.bpm as number} BPM</span>}
                 {duration > 0 && <span className="text-xs text-slate-400">· {fmtTime(duration)}</span>}
               </div>
             </div>
@@ -215,7 +215,7 @@ const Player: React.FC = () => {
           <Waveform
             bars={Array.from({ length: 60 }, () => 0.2 + Math.random() * 0.8)}
             progress={progress}
-            isPlaying={isPlaying}
+            onSeek={(ratio) => { if (audioRef.current && duration) audioRef.current.currentTime = ratio * duration }}
           />
 
           {/* 시크 바 */}

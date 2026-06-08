@@ -1,9 +1,14 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/common/Button'
 import { Badge } from '../components/common/Badge'
 import { Toggle } from '../components/common/Toggle'
 import { useAuth } from '../context/AuthContext'
 import { updateMe, changePassword } from '../api/auth'
+import { getNotificationSettings, updateNotificationSettings } from '../api/notifications'
+import type { NotificationSettings } from '../api/notifications'
+import { getCredits } from '../api/credits'
+import { getCurrentSubscription } from '../api/subscriptions'
 
 type Tab = 'account' | 'notification' | 'security' | 'subscription'
 
@@ -14,16 +19,24 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'subscription', label: '구독 관리' },
 ]
 
+const NOTIFICATION_META = [
+  { id: 'gen'       as const, label: '생성 완료 알림',   desc: '트랙 생성이 완료되면 알립니다' },
+  { id: 'credit'    as const, label: '크레딧 부족 알림',  desc: '크레딧이 20개 미만이면 알립니다' },
+  { id: 'like'      as const, label: '커뮤니티 좋아요',   desc: '내 트랙에 좋아요가 달리면 알립니다' },
+  { id: 'follow'    as const, label: '새 팔로워',         desc: '누군가 나를 팔로우하면 알립니다' },
+  { id: 'marketing' as const, label: '마케팅 이메일',     desc: 'AIVA의 새 기능 및 혜택 소식' },
+]
+
 const Profile: React.FC = () => {
   const { user, refreshUser } = useAuth()
+  const navigate              = useNavigate()
   const [tab, setTab]         = useState<Tab>('account')
 
   // ── 계정 정보 ───────────────────────────────────────────
-  const [name, setName]     = useState(user?.name ?? '')
-  const [saving, setSaving] = useState(false)
+  const [name, setName]       = useState(user?.name ?? '')
+  const [saving, setSaving]   = useState(false)
   const [saveMsg, setSaveMsg] = useState('')
 
-  // user가 로드되면 name 초기값 설정
   useEffect(() => {
     if (user?.name) setName(user.name)
   }, [user?.name])
@@ -33,7 +46,7 @@ const Profile: React.FC = () => {
     setSaveMsg('')
     try {
       await updateMe({ name })
-      await refreshUser()   // 컨텍스트의 user 최신화
+      await refreshUser()
       setSaveMsg('저장됨')
       setTimeout(() => setSaveMsg(''), 2000)
     } catch (e) {
@@ -43,16 +56,41 @@ const Profile: React.FC = () => {
     }
   }
 
-  // ── 알림 설정 ───────────────────────────────────────────
-  const [notifications, setNotifications] = useState([
-    { id: 'gen',       label: '생성 완료 알림',   desc: '트랙 생성이 완료되면 알립니다',       on: true  },
-    { id: 'credit',    label: '크레딧 부족 알림',  desc: '크레딧이 20개 미만이면 알립니다',     on: true  },
-    { id: 'like',      label: '커뮤니티 좋아요',   desc: '내 트랙에 좋아요가 달리면 알립니다', on: false },
-    { id: 'follow',    label: '새 팔로워',         desc: '누군가 나를 팔로우하면 알립니다',     on: false },
-    { id: 'marketing', label: '마케팅 이메일',     desc: 'AIVA의 새 기능 및 혜택 소식',        on: false },
-  ])
-  const toggleNotification = (id: string) =>
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, on: !n.on } : n))
+  // ── 알림 설정 (API 연동) ────────────────────────────────
+  const [notifSettings, setNotifSettings] = useState<NotificationSettings>({
+    gen: true, credit: true, like: false, follow: false, marketing: false,
+  })
+  const [notifLoading, setNotifLoading] = useState(false)
+  const [notifMsg, setNotifMsg]         = useState('')
+
+  const loadNotifications = useCallback(async () => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const res = await getNotificationSettings() as any
+      if (res.data) setNotifSettings(res.data)
+    } catch { /* 기본값 유지 */ }
+  }, [])
+
+  useEffect(() => {
+    if (tab === 'notification') loadNotifications()
+  }, [tab, loadNotifications])
+
+  const handleToggleNotification = async (id: keyof NotificationSettings) => {
+    const updated = { ...notifSettings, [id]: !notifSettings[id] }
+    setNotifSettings(updated)
+    setNotifLoading(true)
+    try {
+      await updateNotificationSettings({ [id]: updated[id] })
+      setNotifMsg('저장됨')
+      setTimeout(() => setNotifMsg(''), 1500)
+    } catch {
+      // 실패 시 롤백
+      setNotifSettings(prev => ({ ...prev, [id]: !updated[id] }))
+      setNotifMsg('저장 실패')
+    } finally {
+      setNotifLoading(false)
+    }
+  }
 
   // ── 비밀번호 변경 ────────────────────────────────────────
   const [currentPw, setCurrentPw] = useState('')
@@ -63,8 +101,7 @@ const Profile: React.FC = () => {
   const [pwError, setPwError]     = useState('')
 
   const handleChangePassword = async () => {
-    setPwError('')
-    setPwMsg('')
+    setPwError(''); setPwMsg('')
     if (newPw !== confirmPw) { setPwError('새 비밀번호가 일치하지 않습니다.'); return }
     if (newPw.length < 8)   { setPwError('비밀번호는 8자 이상이어야 합니다.'); return }
     setPwLoading(true)
@@ -80,8 +117,35 @@ const Profile: React.FC = () => {
     }
   }
 
+  // ── 구독 / 크레딧 (API 연동) ─────────────────────────────
+  const [creditBalance, setCreditBalance]   = useState<number>(user?.credits ?? 0)
+  const [monthlyGrant, setMonthlyGrant]     = useState<number>(100)
+  const [subPeriodEnd, setSubPeriodEnd]     = useState<string | null>(null)
+  const [subLoading, setSubLoading]         = useState(false)
+
+  const loadSubscription = useCallback(async () => {
+    setSubLoading(true)
+    try {
+      const [creditRes, subRes] = await Promise.all([
+        getCredits() as Promise<any>, // eslint-disable-line @typescript-eslint/no-explicit-any
+        getCurrentSubscription() as Promise<any>, // eslint-disable-line @typescript-eslint/no-explicit-any
+      ])
+      if (creditRes.data) {
+        setCreditBalance(creditRes.data.balance ?? 0)
+        setMonthlyGrant(creditRes.data.monthlyGrant ?? 100)
+      }
+      if (subRes.data?.currentPeriodEnd) {
+        setSubPeriodEnd(new Date(subRes.data.currentPeriodEnd).toLocaleDateString('ko-KR'))
+      }
+    } catch { /* 기본값 유지 */ }
+    finally { setSubLoading(false) }
+  }, [])
+
+  useEffect(() => {
+    if (tab === 'subscription') loadSubscription()
+  }, [tab, loadSubscription])
+
   const planLabel = user?.plan === 'pro' ? 'Pro 플랜' : user?.plan === 'enterprise' ? 'Enterprise' : 'Free 플랜'
-  const credits   = user?.credits ?? 0
   const initial   = (user?.name ?? 'U')[0].toUpperCase()
 
   return (
@@ -102,7 +166,7 @@ const Profile: React.FC = () => {
           <Badge variant="info" className="mt-1">{planLabel}</Badge>
         </div>
         <div className="ml-auto text-right">
-          <div className="text-2xl font-black text-white">{credits}</div>
+          <div className="text-2xl font-black text-white">{creditBalance}</div>
           <div className="text-xs text-slate-400">남은 크레딧</div>
         </div>
       </div>
@@ -140,7 +204,7 @@ const Profile: React.FC = () => {
             />
           </div>
           {saveMsg && (
-            <p className={`text-sm font-semibold ${saveMsg.startsWith('저') ? 'text-emerald-400' : 'text-red-400'}`}>
+            <p className={`text-sm font-semibold ${saveMsg === '저장됨' ? 'text-emerald-400' : 'text-red-400'}`}>
               {saveMsg}
             </p>
           )}
@@ -150,17 +214,24 @@ const Profile: React.FC = () => {
         </div>
       )}
 
-      {/* ── 알림 설정 탭 ─────────────────────────────────── */}
+      {/* ── 알림 설정 탭 (API 연동) ──────────────────────── */}
       {tab === 'notification' && (
         <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6 space-y-4">
-          <h2 className="font-bold text-white">알림 설정</h2>
-          {notifications.map(n => (
+          <div className="flex items-center justify-between">
+            <h2 className="font-bold text-white">알림 설정</h2>
+            {notifMsg && <span className={`text-xs font-semibold ${notifMsg === '저장됨' ? 'text-emerald-400' : 'text-red-400'}`}>{notifMsg}</span>}
+          </div>
+          {NOTIFICATION_META.map(n => (
             <div key={n.id} className="flex items-center justify-between py-2 border-b border-(--border-color) last:border-0">
               <div>
                 <div className="text-sm font-semibold text-white">{n.label}</div>
                 <div className="text-xs text-slate-400 mt-0.5">{n.desc}</div>
               </div>
-              <Toggle checked={n.on} onChange={() => toggleNotification(n.id)} />
+              <Toggle
+                checked={notifSettings[n.id]}
+                onChange={() => handleToggleNotification(n.id)}
+                disabled={notifLoading}
+              />
             </div>
           ))}
         </div>
@@ -200,36 +271,52 @@ const Profile: React.FC = () => {
         </div>
       )}
 
-      {/* ── 구독 탭 ──────────────────────────────────────── */}
+      {/* ── 구독 탭 (API 연동) ───────────────────────────── */}
       {tab === 'subscription' && (
         <div className="space-y-4">
           <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6 space-y-4">
             <h2 className="font-bold text-white">현재 구독</h2>
-            <div className="flex items-center justify-between p-4 rounded-xl bg-[#080c2a] border border-(--border-color)">
-              <div>
-                <div className="font-bold text-white">{planLabel}</div>
-                <div className="text-xs text-slate-400 mt-0.5">
-                  {user?.plan === 'free' ? '월 100 크레딧 · 무료' : user?.plan === 'pro' ? '월 1,000 크레딧 · ₩12,000' : 'Enterprise 플랜'}
+            {subLoading ? (
+              <div className="h-12 bg-slate-800/50 rounded-xl animate-pulse" />
+            ) : (
+              <div className="flex items-center justify-between p-4 rounded-xl bg-[#080c2a] border border-(--border-color)">
+                <div>
+                  <div className="font-bold text-white">{planLabel}</div>
+                  <div className="text-xs text-slate-400 mt-0.5">
+                    {user?.plan === 'free'
+                      ? `월 ${monthlyGrant} 크레딧 · 무료`
+                      : user?.plan === 'pro'
+                        ? `월 ${monthlyGrant} 크레딧 · ₩19,000${subPeriodEnd ? ` · ${subPeriodEnd} 갱신` : ''}`
+                        : `무제한 크레딧 · Enterprise${subPeriodEnd ? ` · ${subPeriodEnd} 갱신` : ''}`
+                    }
+                  </div>
                 </div>
+                <Badge variant="success">활성</Badge>
               </div>
-              <Badge variant="success">활성</Badge>
-            </div>
+            )}
             {user?.plan === 'free' && (
-              <Button variant="primary" size="sm" fullWidth>Pro로 업그레이드</Button>
+              <Button variant="primary" size="sm" fullWidth onClick={() => navigate('/pricing')}>
+                Pro로 업그레이드
+              </Button>
             )}
           </div>
           <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6">
             <h3 className="font-bold text-white mb-4">크레딧 현황</h3>
             <div className="flex justify-between text-sm mb-2">
               <span className="text-slate-400">남은 크레딧</span>
-              <span className="font-bold text-white">{credits} / 100</span>
+              <span className="font-bold text-white">
+                {creditBalance} / {monthlyGrant === -1 ? '∞' : monthlyGrant}
+              </span>
             </div>
-            <div className="h-2 bg-navy-800 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-indigo-600 to-violet-600 rounded-full transition-all"
-                style={{ width: `${Math.min(credits, 100)}%` }}
-              />
-            </div>
+            {monthlyGrant !== -1 && (
+              <div className="h-2 bg-navy-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-indigo-600 to-violet-600 rounded-full transition-all"
+                  style={{ width: `${Math.min((creditBalance / monthlyGrant) * 100, 100)}%` }}
+                />
+              </div>
+            )}
+            <p className="text-xs text-slate-500 mt-2">크레딧은 매월 1일 갱신됩니다.</p>
           </div>
         </div>
       )}

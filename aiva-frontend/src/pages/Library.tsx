@@ -1,11 +1,11 @@
 import React, { useState } from 'react'
-import { LayoutGrid, List, Music2, Play } from 'lucide-react'
+import { Globe, LayoutGrid, List, Lock, Music2, Play } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Badge } from '../components/common/Badge'
 import { Button } from '../components/common/Button'
 import { Waveform } from '../components/common/Waveform'
 import { useApi } from '../hooks/useApi'
-import { getTracks } from '../api/tracks'
+import { getTracks, updateTrack } from '../api/tracks'
 import { formatDuration, formatPlays, formatDate, gradColor } from '../utils/format'
 import type { Track, PaginatedResponse } from '../types'
 
@@ -28,6 +28,24 @@ const GridSkeleton = () => (
 
 const Library: React.FC = () => {
   const navigate = useNavigate()
+  const [togglingId, setTogglingId] = useState<string | null>(null)
+
+  const handleVisibilityToggle = async (e: React.MouseEvent, track: Track) => {
+    e.stopPropagation()
+    if (togglingId) return
+    setTogglingId(track.id)
+    try {
+      // DB는 is_public (0/1), 타입 캐스팅 필요
+      const currentPublic = !!(track as Track & { is_public?: number }).is_public
+      await updateTrack(track.id, { isPublic: !currentPublic })
+      await refetch()
+    } catch {
+      // 실패해도 조용히 처리
+    } finally {
+      setTogglingId(null)
+    }
+  }
+
   const [view, setView]     = useState<ViewMode>('grid')
   const [filter, setFilter] = useState('전체')
   const [search, setSearch] = useState('')
@@ -91,7 +109,7 @@ const Library: React.FC = () => {
       {/* ── 빈 상태 ──────────────────────────────────────── */}
       {!loading && !error && tracks.length === 0 && (
         <div className="text-center py-16">
-          <div className="text-4xl mb-3">🎵</div>
+          <Music2 size={40} className="mx-auto mb-3 text-slate-600" />
           <p className="text-slate-400 mb-2">
             {search || filter !== '전체' ? '검색 결과가 없습니다.' : '아직 생성한 트랙이 없습니다.'}
           </p>
@@ -119,6 +137,21 @@ const Library: React.FC = () => {
                         {t.status === 'generating' ? '생성 중' : t.status === 'error' ? '오류' : '대기'}
                       </div>
                     )}
+                    {/* 공개/비공개 배지 */}
+                    <button
+                      onClick={e => handleVisibilityToggle(e, t)}
+                      disabled={togglingId === t.id}
+                      className={`absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
+                        (t as Track & { is_public?: number }).is_public
+                          ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/30'
+                          : 'bg-slate-800/80 border-slate-600/40 text-slate-400 hover:bg-slate-700/80'
+                      } ${togglingId === t.id ? 'opacity-50' : ''}`}
+                    >
+                      {(t as Track & { is_public?: number }).is_public
+                        ? <><Globe size={9} />PUBLIC</>
+                        : <><Lock size={9} />PRIVATE</>
+                      }
+                    </button>
                     <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                       <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
                         <Play size={16} fill="white" className="text-white" />
@@ -170,6 +203,20 @@ const Library: React.FC = () => {
                   <Waveform className="w-20 hidden md:flex" />
                   <span className="text-xs text-slate-500 hidden sm:block">▶ {formatPlays(t.plays)}</span>
                   <span className="text-xs text-slate-400">{formatDuration(t.duration)}</span>
+                  <button
+                    onClick={e => handleVisibilityToggle(e, t)}
+                    disabled={togglingId === t.id}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
+                      (t as Track & { is_public?: number }).is_public
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
+                        : 'bg-slate-700/40 border-slate-600/30 text-slate-400 hover:bg-slate-700/70'
+                    } ${togglingId === t.id ? 'opacity-50' : ''}`}
+                  >
+                    {(t as Track & { is_public?: number }).is_public
+                      ? <><Globe size={10} /><span className="hidden sm:inline ml-0.5">공개</span></>
+                      : <><Lock size={10} /><span className="hidden sm:inline ml-0.5">비공개</span></>
+                    }
+                  </button>
                   <Button variant="secondary" size="sm"
                     onClick={e => { e.stopPropagation(); navigate('/editor') }}>
                     편집

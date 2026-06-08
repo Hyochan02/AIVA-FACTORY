@@ -5,7 +5,6 @@ import {
   Compass, CreditCard, User, LogOut,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import { Badge } from '../common/Badge'
 import { Button } from '../common/Button'
 
 const NAV_ITEMS = [
@@ -13,7 +12,7 @@ const NAV_ITEMS = [
     section: '메뉴',
     items: [
       { key: 'dashboard', label: '대시보드',    path: '/dashboard', icon: <LayoutDashboard   size={18} /> },
-      { key: 'create',    label: '음악 생성',   path: '/create',    icon: <Sparkles          size={18} />, badge: 'NEW' },
+      { key: 'create',    label: '음악 생성',   path: '/create',    icon: <Sparkles          size={18} />, },
       { key: 'library',   label: '내 라이브러리', path: '/library',  icon: <Library           size={18} /> },
       { key: 'editor',    label: '에디터',       path: '/editor',   icon: <SlidersHorizontal size={18} /> },
       { key: 'explore',   label: '탐색',         path: '/explore',  icon: <Compass           size={18} /> },
@@ -66,11 +65,10 @@ export const Sidebar: React.FC = () => {
               {section}
             </div>
             <div className="flex flex-col gap-0.5">
-              {items.map(({ key, label, path, icon, badge }) => (
+              {items.map(({ key, label, path, icon }) => (
                 <NavLink key={key} to={path} className={navLinkClass}>
                   {icon}
                   <span className="flex-1">{label}</span>
-                  {badge && <Badge variant="new">{badge}</Badge>}
                 </NavLink>
               ))}
             </div>

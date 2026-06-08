@@ -13,6 +13,7 @@ export interface GeneratePayload {
   duration?:    number
   instrumental?: boolean
   title?:       string
+  isPublic?:    boolean  // 공개 여부 (기본값: true)
 }
 
 export interface GenerateResponse {

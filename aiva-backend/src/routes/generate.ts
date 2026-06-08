@@ -38,6 +38,7 @@ const generateSchema = z.object({
   duration:     z.number().min(30).max(240).default(120),
   instrumental: z.boolean().default(false),
   title:        z.string().max(80).optional(),
+  isPublic:     z.boolean().default(true),
 })
 
 // ── POST /api/generate ──────────────────────────────────────
@@ -62,9 +63,9 @@ router.post('/', generateLimiter, async (req, res, next) => {
       const trackTitle = body.title || body.prompt.slice(0, 50)
       await conn.query(
         `INSERT INTO tracks (id, user_id, title, prompt, genre, mood, bpm, duration, status, is_public)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 1)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
         [trackId, req.user!.id, trackTitle, body.prompt,
-         body.genre ?? null, body.mood ?? null, body.bpm ?? null, body.duration]
+         body.genre ?? null, body.mood ?? null, body.bpm ?? null, body.duration, body.isPublic ? 1 : 0]
       )
 
       // 3. Suno API v1 호출
@@ -226,8 +227,8 @@ router.get('/:trackId/status', async (req, res, next) => {
           const first = sunoData[0]
           if (first) {
             await conn.query(
-              "UPDATE tracks SET status = 'done', audio_url = ?, cover_url = ? WHERE id = ?",
-              [first.audioUrl, first.imageUrl, track.id]
+              "UPDATE tracks SET status = 'done', audio_url = ?, cover_url = ?, duration = ? WHERE id = ?",
+              [first.audioUrl, first.imageUrl, Math.round(first.duration ?? 0), track.id]
             )
           }
 
@@ -323,8 +324,8 @@ router.post('/callback', async (req, res) => {
       const first = sunoData[0]
       if (first) {
         await conn.query(
-          "UPDATE tracks SET status = 'done', audio_url = ?, cover_url = ? WHERE id = ?",
-          [first.audioUrl, first.imageUrl, track.id]
+          "UPDATE tracks SET status = 'done', audio_url = ?, cover_url = ?, duration = ? WHERE id = ?",
+          [first.audioUrl, first.imageUrl, Math.round(first.duration ?? 0), track.id]
         )
       }
     } finally { conn.release() }

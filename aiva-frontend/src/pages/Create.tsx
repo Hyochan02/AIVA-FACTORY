@@ -20,6 +20,7 @@ const Create: React.FC = () => {
   const [selectedMood, setSelectedMood]               = useState('')
   const [selectedInstruments, setSelectedInstruments] = useState<string[]>([])
   const [instrumental, setInstrumental]               = useState(false)
+  const [isPublic, setIsPublic]                         = useState(true)
   const [title, setTitle]                             = useState('')
   const [loading, setLoading]                         = useState(false)
   const [error, setError]                             = useState('')
@@ -39,6 +40,7 @@ const Create: React.FC = () => {
         instruments: selectedInstruments.length > 0 ? selectedInstruments : undefined,
         instrumental,
         title:       title.trim() || undefined,
+        isPublic,
       }) as { data: { trackId: string } }
       navigate(`/generating?trackId=${res.data.trackId}`)
     } catch (err: unknown) {
@@ -149,6 +151,25 @@ const Create: React.FC = () => {
             <div className="text-xs text-slate-400 mt-0.5">보컬 없이 순수 악기 연주로만 생성합니다</div>
           </div>
           <Toggle checked={instrumental} onChange={setInstrumental} />
+        </div>
+      </div>
+
+      {/* 공개 설정 */}
+      <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="text-sm font-bold text-white">공개 트랙</div>
+              {isPublic
+                ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">PUBLIC</span>
+                : <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-700/60 text-slate-400 border border-slate-600/30">PRIVATE</span>
+              }
+            </div>
+            <div className="text-xs text-slate-400 mt-0.5">
+              {isPublic ? 'Explore 피드에 노출되고 다른 사용자가 들을 수 있습니다' : '나만 들을 수 있는 비공개 트랙입니다'}
+            </div>
+          </div>
+          <Toggle checked={isPublic} onChange={setIsPublic} />
         </div>
       </div>
 

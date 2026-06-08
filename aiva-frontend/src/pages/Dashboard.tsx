@@ -146,13 +146,6 @@ const Dashboard: React.FC = () => {
 
         {/* ── 사이드 위젯 ────────────────────────────────── */}
         <div className="flex flex-col gap-4">
-          <div className="bg-linear-to-br from-navy-800 to-indigo-900/60 border border-indigo-700/30 rounded-2xl p-5">
-            <div className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2">이번 주 트렌드</div>
-            <div className="font-bold text-white mb-1">도쿄 나이트 바이브</div>
-            <p className="text-xs text-slate-400 leading-relaxed mb-4">시티팝 + 재즈가 합쳐진 새로운 트렌드. 지금 바로 만들어보세요.</p>
-            <Button variant="soft" size="sm" onClick={() => navigate('/create')}>트렌드로 생성 →</Button>
-          </div>
-
           <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-5">
             <div className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3">크레딧 현황</div>
             <div className="flex justify-between text-sm mb-2">

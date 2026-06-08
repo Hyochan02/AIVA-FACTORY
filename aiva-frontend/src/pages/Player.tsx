@@ -1,9 +1,10 @@
-import { Music2, SkipBack, Play, Pause, SkipForward } from 'lucide-react'
+import { Globe, Lock, Music2, SkipBack, Play, Pause, SkipForward } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import { Button } from '../components/common/Button'
 import { Badge } from '../components/common/Badge'
-import { getTrack, likeTrack, unlikeTrack, getComments, postComment } from '../api/tracks'
+import { getTrack, likeTrack, unlikeTrack, updateTrack, getComments, postComment } from '../api/tracks'
 
 interface Version {
   id: string; version_num: number; audio_url: string
@@ -15,6 +16,7 @@ const Player: React.FC = () => {
   const { id: trackId } = useParams<{ id: string }>()
   const [searchParams]  = useSearchParams()
   const navigate        = useNavigate()
+  const { user }        = useAuth()
   const initVersion     = Number(searchParams.get('v') ?? 1)
 
   // 트랙 데이터
@@ -35,6 +37,8 @@ const Player: React.FC = () => {
   // 인터랙션
   const [liked, setLiked]         = useState(false)
   const [likeCount, setLikeCount] = useState(0)
+  const [isPublic, setIsPublic]   = useState(true)
+  const [togglingVis, setTogglingVis] = useState(false)
   const [comments, setComments]   = useState<Comment[]>([])
   const [commentText, setCommentText] = useState('')
   const [commenting, setCommenting]   = useState(false)
@@ -50,6 +54,7 @@ const Player: React.FC = () => {
       setTrack(t)
       setLiked(!!t.isLiked)
       setLikeCount(t.like_count ?? 0)
+      setIsPublic(!!t.is_public)
       setVersions(t.versions ?? [])
       setLoading(false)
     }).catch(() => { setError('트랙을 불러올 수 없습니다.'); setLoading(false) })
@@ -131,6 +136,19 @@ const Player: React.FC = () => {
     if (audioRef.current) { audioRef.current.pause(); setIsPlaying(false); setCurrentTime(0) }
     setCurrentVersion(v)
     if (wasPlaying) setTimeout(() => { audioRef.current?.play(); setIsPlaying(true) }, 100)
+  }
+
+  const handleVisibilityToggle = async () => {
+    if (!trackId || togglingVis) return
+    setTogglingVis(true)
+    try {
+      await updateTrack(trackId, { isPublic: !isPublic })
+      setIsPublic(p => !p)
+    } catch {
+      // 실패 시 원래 상태 유지
+    } finally {
+      setTogglingVis(false)
+    }
   }
 
   const handleLike = async () => {
@@ -216,6 +234,23 @@ const Player: React.FC = () => {
               >
                 ♥ {likeCount}
               </button>
+              {/* 공개/비공개 토글 — 본인 트랙일 때만 표시 */}
+              {user && track?.user_id === user.id && (
+                <button
+                  onClick={handleVisibilityToggle}
+                  disabled={togglingVis}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all disabled:opacity-50 ${
+                    isPublic
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
+                      : 'border-primary-soft text-slate-400 hover:border-slate-500/50 hover:text-slate-300'
+                  }`}
+                >
+                  {isPublic
+                    ? <><Globe size={12} className="shrink-0" />&nbsp;공개</>
+                    : <><Lock size={12} className="shrink-0" />&nbsp;비공개</>
+                  }
+                </button>
+              )}
               <Button variant="secondary" size="sm" onClick={() => navigate(`/editor?trackId=${trackId}`)}>
                 편집
               </Button>

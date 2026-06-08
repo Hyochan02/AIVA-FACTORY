@@ -1,0 +1,124 @@
+/* =========================================================
+   AIVA FACTORY · Design System
+   Color Theme: Navy / Indigo (다크 테마)
+   Font: Pretendard
+   ========================================================= */
+
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+@import "tailwindcss";
+
+/* ── Tailwind v4 커스텀 테마 토큰 ── */
+@theme {
+  /* Navy-Indigo Palette */
+  --color-navy-950: #05071a;
+  --color-navy-900: #080c2a;
+  --color-navy-800: #0d1340;
+  --color-navy-700: #151e58;
+  --color-navy-600: #1e2d7a;
+  --color-navy-500: #2a3f9f;
+  --color-navy-400: #3d57c4;
+
+  --color-indigo-950: #1e1b4b;
+  --color-indigo-900: #312e81;
+  --color-indigo-800: #3730a3;
+  --color-indigo-700: #4338ca;
+  --color-indigo-600: #4f46e5;
+  --color-indigo-500: #6366f1;
+  --color-indigo-400: #818cf8;
+  --color-indigo-300: #a5b4fc;
+  --color-indigo-200: #c7d2fe;
+  --color-indigo-100: #e0e7ff;
+  --color-indigo-50:  #eef2ff;
+
+  --color-violet-600: #7c3aed;
+  --color-violet-500: #8b5cf6;
+  --color-violet-400: #a78bfa;
+  --color-violet-300: #c4b5fd;
+
+  /* Semantic Background */
+  --color-bg:        #080c2a;
+  --color-bg-elev:   #0d1340;
+  --color-bg-soft:   #111847;
+  --color-bg-card:   #131a4a;
+
+  /* Semantic Text */
+  --color-text:        #f1f5f9;
+  --color-text-muted:  #94a3b8;
+  --color-text-subtle: #64748b;
+
+  /* Primary */
+  --color-primary:       #818cf8;
+  --color-primary-hover: #6366f1;
+  --color-primary-soft:  rgba(129, 140, 248, 0.15);
+  --color-primary-deep:  #4f46e5;
+
+  /* Functional */
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-danger:  #f87171;
+
+  /* Font */
+  --font-sans: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+
+  /* Border radius (Tailwind 기본값 확장) */
+  --radius-xs:   6px;
+  --radius-sm:   10px;
+  --radius-md:   14px;
+  --radius-lg:   20px;
+  --radius-xl:   28px;
+  --radius-full: 999px;
+}
+
+/* ── CSS Custom Properties (JS 접근 용) ── */
+:root {
+  --border-color:      rgba(129, 140, 248, 0.15);
+  --border-soft:       rgba(129, 140, 248, 0.08);
+  --gradient-brand:    linear-gradient(135deg, #4338ca 0%, #6366f1 50%, #8b5cf6 100%);
+  --gradient-soft:     linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+  --shadow-glow:       0 0 40px rgba(99, 102, 241, 0.25);
+  --shadow-sm:         0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-md:         0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-lg:         0 20px 48px rgba(0, 0, 0, 0.5);
+  --sidebar-w:         240px;
+  --topbar-h:          64px;
+}
+
+/* ── Global Reset ── */
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-sans);
+    background: #080c2a;
+    color: #f1f5f9;
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.01em;
+  }
+
+  #root { min-height: 100vh; }
+  a { color: inherit; text-decoration: none; }
+  button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+}
+
+/* ── 스크롤바 커스텀 ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #080c2a; }
+::-webkit-scrollbar-thumb { background: #1e2d7a; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #4f46e5; }
+
+/* ── 글로벌 유틸리티 ── */
+.grad-text {
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.glass {
+  backdrop-filter: blur(12px);
+  background: rgba(13, 19, 64, 0.85);
+  border: 1px solid var(--border-color);
+}
+.glow { box-shadow: var(--shadow-glow); }

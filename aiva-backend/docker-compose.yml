@@ -1,0 +1,30 @@
+# =========================================================
+# AIVA FACTORY · 로컬 개발용 Docker Compose
+# MySQL 컨테이너만 실행 (백엔드는 npm run dev 로 직접 실행)
+# 사용법: docker compose up -d
+# =========================================================
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: aiva_mysql_dev
+    restart: unless-stopped
+    ports:
+      - "3306:3306"           # 로컬 3306 → 컨테이너 3306
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: aiva_factory
+      MYSQL_USER: aiva_user
+      MYSQL_PASSWORD: aiva_dev_password
+    volumes:
+      - mysql_dev_data:/var/lib/mysql                                   # 데이터 영속화
+      - ./prisma/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro  # 최초 1회 스키마 자동 실행
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mysql_dev_data:
+    name: aiva_mysql_dev_data

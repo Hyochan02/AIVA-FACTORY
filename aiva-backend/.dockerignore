@@ -1,0 +1,11 @@
+# 빌드 시 Docker 컨텍스트에서 제외할 파일들
+node_modules
+dist
+.env
+.env.production
+*.log
+npm-debug.log*
+.git
+.gitignore
+README.md
+migrations

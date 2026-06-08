@@ -1,0 +1,65 @@
+# =========================================================
+# AIVA FACTORY · 프로덕션 Docker Compose (EC2 배포용)
+# 구성: mysql + backend + nginx
+# EC2에서: docker compose -f docker-compose.prod.yml up -d
+# =========================================================
+
+services:
+
+  # ── MySQL (EC2 내부 DB) ──────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: aiva_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./prisma/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    networks:
+      - aiva_net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ── Backend (Node.js API) ────────────────────────────────
+  backend:
+    image: ghcr.io/${GITHUB_REPOSITORY}/backend:latest
+    container_name: aiva_backend
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy     # MySQL 준비 완료 후 시작
+    env_file:
+      - .env.production                # EC2에 수동 생성할 환경변수 파일
+    networks:
+      - aiva_net
+
+  # ── Nginx (리버스 프록시 + 프론트엔드 정적 파일 서빙) ────────
+  nginx:
+    image: nginx:alpine
+    container_name: aiva_nginx
+    restart: always
+    ports:
+      - "80:80"                        # HTTP (추후 certbot으로 443 추가 가능)
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/html:/usr/share/nginx/html:ro  # React 빌드 결과물
+    depends_on:
+      - backend
+    networks:
+      - aiva_net
+
+volumes:
+  mysql_data:
+    name: aiva_mysql_prod_data        # 볼륨 이름 명시 → 실수로 삭제 방지
+
+networks:
+  aiva_net:
+    driver: bridge

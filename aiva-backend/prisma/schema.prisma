@@ -1,0 +1,224 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model comments {
+  id         String    @id @db.VarChar(36)
+  track_id   String    @db.VarChar(36)
+  user_id    String    @db.VarChar(36)
+  content    String    @db.Text
+  created_at DateTime? @default(now()) @db.DateTime(0)
+  tracks     tracks    @relation(fields: [track_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "comments_ibfk_1")
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "comments_ibfk_2")
+
+  @@index([track_id, created_at], map: "idx_created")
+  @@index([track_id], map: "idx_track_id")
+  @@index([user_id], map: "user_id")
+}
+
+model credit_history {
+  id          String              @id @db.VarChar(36)
+  user_id     String              @db.VarChar(36)
+  type        credit_history_type
+  amount      Int                 @db.SmallInt
+  balance     Int                 @db.SmallInt
+  description String?             @db.VarChar(255)
+  track_id    String?             @db.VarChar(36)
+  created_at  DateTime?           @default(now()) @db.DateTime(0)
+  users       users               @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "credit_history_ibfk_1")
+  tracks      tracks?             @relation(fields: [track_id], references: [id], onUpdate: NoAction, map: "credit_history_ibfk_2")
+
+  @@index([user_id, created_at], map: "idx_created")
+  @@index([type], map: "idx_type")
+  @@index([user_id], map: "idx_user_id")
+  @@index([track_id], map: "track_id")
+}
+
+model editor_settings {
+  track_id    String    @id @db.VarChar(36)
+  stem_config Json?
+  effects     Json?
+  updated_at  DateTime? @default(now()) @db.DateTime(0)
+  tracks      tracks    @relation(fields: [track_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "editor_settings_ibfk_1")
+}
+
+model follows {
+  follower_id                       String    @db.VarChar(36)
+  following_id                      String    @db.VarChar(36)
+  created_at                        DateTime? @default(now()) @db.DateTime(0)
+  users_follows_follower_idTousers  users     @relation("follows_follower_idTousers", fields: [follower_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "follows_ibfk_1")
+  users_follows_following_idTousers users     @relation("follows_following_idTousers", fields: [following_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "follows_ibfk_2")
+
+  @@id([follower_id, following_id])
+  @@index([following_id], map: "idx_following")
+}
+
+model likes {
+  user_id    String    @db.VarChar(36)
+  track_id   String    @db.VarChar(36)
+  created_at DateTime? @default(now()) @db.DateTime(0)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "likes_ibfk_1")
+  tracks     tracks    @relation(fields: [track_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "likes_ibfk_2")
+
+  @@id([user_id, track_id])
+  @@index([track_id], map: "idx_track_id")
+}
+
+model notification_settings {
+  user_id   String   @id @db.VarChar(36)
+  gen       Boolean? @default(true)
+  credit    Boolean? @default(true)
+  like      Boolean? @default(false)
+  follow    Boolean? @default(false)
+  marketing Boolean? @default(false)
+  users     users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "notification_settings_ibfk_1")
+}
+
+model social_accounts {
+  id          String                   @id @db.VarChar(36)
+  user_id     String                   @db.VarChar(36)
+  provider    social_accounts_provider
+  provider_id String                   @db.VarChar(255)
+  created_at  DateTime?                @default(now()) @db.DateTime(0)
+  users       users                    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "social_accounts_ibfk_1")
+
+  @@unique([provider, provider_id], map: "uq_provider")
+  @@index([user_id], map: "user_id")
+}
+
+model subscriptions {
+  id                   String                       @id @db.VarChar(36)
+  user_id              String                       @db.VarChar(36)
+  plan                 subscriptions_plan
+  billing_cycle        subscriptions_billing_cycle?
+  status               subscriptions_status?        @default(active)
+  current_period_end   DateTime?                    @db.DateTime(0)
+  cancel_at_period_end Boolean?                     @default(false)
+  payment_method_id    String?                      @db.VarChar(255)
+  created_at           DateTime?                    @default(now()) @db.DateTime(0)
+  users                users                        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "subscriptions_ibfk_1")
+
+  @@index([user_id, status], map: "idx_user_active")
+}
+
+model track_versions {
+  id          String    @id @db.VarChar(36)
+  track_id    String    @db.VarChar(36)
+  version_num Int       @db.TinyInt
+  audio_url   String    @db.VarChar(500)
+  duration    Int?      @db.UnsignedSmallInt
+  created_at  DateTime? @default(now()) @db.DateTime(0)
+  tracks      tracks    @relation(fields: [track_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "track_versions_ibfk_1")
+
+  @@index([track_id], map: "idx_track_id")
+}
+
+model tracks {
+  id              String           @id @db.VarChar(36)
+  user_id         String           @db.VarChar(36)
+  title           String           @db.VarChar(255)
+  prompt          String           @db.Text
+  genre           String?          @db.VarChar(100)
+  mood            String?          @db.VarChar(100)
+  bpm             Int?             @db.UnsignedSmallInt
+  duration        Int?             @db.UnsignedSmallInt
+  status          tracks_status?   @default(pending)
+  suno_task_id    String?          @db.VarChar(255)
+  audio_url       String?          @db.VarChar(500)
+  cover_url       String?          @db.VarChar(500)
+  is_public       Boolean?         @default(false)
+  play_count      Int?             @default(0) @db.UnsignedInt
+  like_count      Int?             @default(0) @db.UnsignedInt
+  created_at      DateTime?        @default(now()) @db.DateTime(0)
+  updated_at      DateTime?        @default(now()) @db.DateTime(0)
+  comments        comments[]
+  credit_history  credit_history[]
+  editor_settings editor_settings?
+  likes           likes[]
+  track_versions  track_versions[]
+  users           users            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "tracks_ibfk_1")
+
+  @@index([is_public, created_at], map: "idx_public_created")
+  @@index([status], map: "idx_status")
+  @@index([suno_task_id], map: "idx_suno_task")
+  @@index([user_id], map: "idx_user_id")
+}
+
+model user_preferences {
+  user_id    String    @id @db.VarChar(36)
+  use_cases  Json?
+  updated_at DateTime? @default(now()) @db.DateTime(0)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "user_preferences_ibfk_1")
+}
+
+model users {
+  id                                  String                 @id @db.VarChar(36)
+  email                               String                 @unique(map: "email") @db.VarChar(255)
+  password                            String?                @db.VarChar(255)
+  name                                String                 @db.VarChar(100)
+  avatar_url                          String?                @db.VarChar(500)
+  plan                                users_plan?            @default(free)
+  is_active                           Boolean?               @default(true)
+  created_at                          DateTime?              @default(now()) @db.DateTime(0)
+  updated_at                          DateTime?              @default(now()) @db.DateTime(0)
+  comments                            comments[]
+  credit_history                      credit_history[]
+  follows_follows_follower_idTousers  follows[]              @relation("follows_follower_idTousers")
+  follows_follows_following_idTousers follows[]              @relation("follows_following_idTousers")
+  likes                               likes[]
+  notification_settings               notification_settings?
+  social_accounts                     social_accounts[]
+  subscriptions                       subscriptions[]
+  tracks                              tracks[]
+  user_preferences                    user_preferences?
+
+  @@index([email], map: "idx_email")
+  @@index([plan], map: "idx_plan")
+}
+
+enum social_accounts_provider {
+  google
+  facebook
+  kakao
+}
+
+enum subscriptions_plan {
+  free
+  pro
+  enterprise
+}
+
+enum credit_history_type {
+  grant
+  usage
+  purchase
+  refund
+}
+
+enum subscriptions_billing_cycle {
+  monthly
+  yearly
+}
+
+enum subscriptions_status {
+  active
+  cancelled
+  expired
+}
+
+enum users_plan {
+  free
+  pro
+  enterprise
+}
+
+enum tracks_status {
+  pending
+  generating
+  done
+  error
+}

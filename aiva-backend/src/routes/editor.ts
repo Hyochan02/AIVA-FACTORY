@@ -64,19 +64,30 @@ async function getJob(jobId: string, userId: string) {
 }
 
 // 히스토리 목록 조회
-async function getJobs(userId: string, limit = 30) {
+async function getJobs(userId: string, type?: string, limit = 30) {
   const conn = await pool.getConnection()
   try {
-    const [rows] = await conn.query(
-      `SELECT sj.id, sj.type, sj.status, sj.result_url, sj.extra, sj.created_at,
-              t.title AS track_title
-       FROM suno_jobs sj
-       LEFT JOIN tracks t ON t.id = sj.track_id
-       WHERE sj.user_id = ?
-       ORDER BY sj.created_at DESC
-       LIMIT ?`,
-      [userId, limit]
-    )
+    const validTypes = ['extend', 'lyrics', 'separate', 'wav', 'video']
+    const useType = type && validTypes.includes(type) ? type : null
+
+    const query = useType
+      ? `SELECT sj.id, sj.type, sj.status, sj.result_url, sj.extra, sj.created_at,
+                t.title AS track_title
+         FROM suno_jobs sj
+         LEFT JOIN tracks t ON t.id = sj.track_id
+         WHERE sj.user_id = ? AND sj.type = ?
+         ORDER BY sj.created_at DESC
+         LIMIT ?`
+      : `SELECT sj.id, sj.type, sj.status, sj.result_url, sj.extra, sj.created_at,
+                t.title AS track_title
+         FROM suno_jobs sj
+         LEFT JOIN tracks t ON t.id = sj.track_id
+         WHERE sj.user_id = ?
+         ORDER BY sj.created_at DESC
+         LIMIT ?`
+
+    const params = useType ? [userId, useType, limit] : [userId, limit]
+    const [rows] = await conn.query(query, params)
     return rows as Record<string, unknown>[]
   } finally { conn.release() }
 }
@@ -426,7 +437,9 @@ router.get('/video/:jobId', async (req, res, next) => {
 // ── GET /api/editor/jobs ─ 히스토리 목록 ──────────────────
 router.get('/jobs', async (req, res, next) => {
   try {
-    const jobs = await getJobs(req.user!.id)
+    const type  = req.query.type  as string | undefined
+    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 30
+    const jobs  = await getJobs(req.user!.id, type, isNaN(limit) ? 30 : limit)
     res.json({ success: true, data: { jobs } })
   } catch (err) { next(err) }
 })
@@ -436,17 +449,57 @@ router.post('/callback/:type', async (req, res) => {
   // 콜백 수신 시 suno_jobs 테이블 업데이트
   try {
     const { data } = req.body
-    if (data?.task_id) {
-      const conn = await pool.getConnection()
-      try {
-        await conn.query(
-          "UPDATE suno_jobs SET status = 'done' WHERE suno_task_id = ? AND status = 'pending'",
-          [data.task_id]
-        )
-      } finally { conn.release() }
-    }
-  } catch { /* ignore callback errors */ }
-  res.json({ ok: true })
+    if (!data) return res.sendStatus(200)
+
+    const sunoTaskId = data.task_id ?? data.taskId
+    if (!sunoTaskId) return res.sendStatus(200)
+
+    const conn = await pool.getConnection()
+    try {
+      // task_id로 job 조회
+      const [rows]: any = await conn.query(
+        'SELECT id FROM suno_jobs WHERE suno_task_id = ?',
+        [sunoTaskId]
+      )
+      if (!rows.length) return res.sendStatus(200)
+
+      const jobId = rows[0].id
+      const type  = req.params.type
+
+      // 결과 URL 추출 (타입별로 다름)
+      let resultUrl: string | null = null
+      let extra: string | null = null
+
+      if (type === 'extend') {
+        const items = data.response?.data ?? []
+        const item  = items.find((x: any) => x.status === 'complete') ?? items[0]
+        resultUrl = item?.audio_url ?? null
+      } else if (type === 'lyrics') {
+        const variants = data.response?.data ?? []
+        const first    = variants.find((v: any) => v.status === 'complete') ?? variants[0] ?? {}
+        extra     = JSON.stringify({ title: first.title ?? '', text: first.text ?? '', variants })
+        resultUrl = null
+      } else if (type === 'separate') {
+        resultUrl = data.response?.vocal_url ?? data.response?.audio_url ?? null
+        extra     = JSON.stringify(data.response ?? {})
+      } else if (type === 'wav') {
+        resultUrl = data.response?.audio_url ?? null
+      } else if (type === 'video') {
+        resultUrl = data.response?.video_url ?? null
+      }
+
+      const status = resultUrl || extra ? 'done' : 'error'
+      await conn.query(
+        'UPDATE suno_jobs SET status = ?, result_url = ?, extra = ? WHERE id = ?',
+        [status, resultUrl, extra, jobId]
+      )
+    } finally { conn.release() }
+
+    res.sendStatus(200)
+  } catch (err) {
+    console.error('Callback error:', err)
+    res.sendStatus(200)
+  }
 })
 
 export default router

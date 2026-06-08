@@ -79,5 +79,10 @@ export interface JobHistory {
   track_title?: string
 }
 
-export const getJobHistory = () =>
-  apiClient.get('/editor/jobs')
+export const getJobHistory = (type?: 'extend' | 'lyrics' | 'separate' | 'wav' | 'video', limit?: number) => {
+  const params = new URLSearchParams()
+  if (type)  params.set('type',  type)
+  if (limit) params.set('limit', String(limit))
+  const qs = params.toString()
+  return apiClient.get(`/editor/jobs${qs ? `?${qs}` : ''}`)
+}

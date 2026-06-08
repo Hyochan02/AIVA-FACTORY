@@ -264,7 +264,7 @@ const Explore: React.FC = () => {
                 const isLoading   = followLoading === c.id
                 const initial     = [...c.name][0]?.toUpperCase() ?? '?'
                 return (
-                  <div key={c.id} className="flex items-center gap-3 hover:bg-navy-800/40 rounded-xl p-2 transition-colors">
+                  <div key={c.id} className="flex items-center gap-3 p-2 rounded-xl bg-[#080c2a]/60 border border-white/5 hover:border-indigo-500/30 transition-all">
                     <div className={`w-10 h-10 rounded-full bg-linear-to-br ${gradColor(c.id)} flex items-center justify-center text-white font-bold shrink-0`}>
                       {initial}
                     </div>
@@ -306,7 +306,7 @@ interface TrackRowProps {
 }
 const TrackRow: React.FC<TrackRowProps> = ({ track, rank, onPlay, isLiked = false, onLike }) => (
   <div
-    className="flex items-center gap-4 p-3 rounded-xl hover:bg-navy-800/40 transition-colors cursor-pointer group"
+    className="flex items-center gap-4 p-3 rounded-xl bg-[#080c2a]/60 border border-white/5 hover:border-indigo-500/30 transition-all cursor-pointer group"
     onClick={onPlay}
   >
     <span className="w-5 text-sm font-black text-slate-500 text-center">{rank}</span>

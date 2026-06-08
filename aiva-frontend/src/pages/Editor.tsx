@@ -71,9 +71,9 @@ const Editor: React.FC = () => {
 
   const [activeTab, setActiveTab]   = useState<Tab>('extend')
 
-  // ── 히스토리 ─────────────────────────────────────────────
+  // ── 히스토리 (activeTab 변경 시 자동 재조회) ────────────
   const { data: historyData, loading: historyLoading, refetch: refetchHistory } =
-    useApi<{ jobs: JobHistory[] }>(() => getJobHistory())
+    useApi<{ jobs: JobHistory[] }>(() => getJobHistory(activeTab), [activeTab])
   const jobHistory = historyData?.jobs ?? []
   const [tracks, setTracks]         = useState<TrackItem[]>([])
   const [selectedTrackId, setSelectedTrackId] = useState(initTrackId)
@@ -376,10 +376,11 @@ const Editor: React.FC = () => {
         {/* ─ 오른쪽: 편집 히스토리 (사이드) ─ */}
         <div className="space-y-3">
           <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-5 flex flex-col gap-3">
+            {/* 헤더 */}
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-white flex items-center gap-2 text-sm">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-indigo-300"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                편집 히스토리
+                {TAB_INFO.find(t => t.id === activeTab)?.label} 히스토리
               </h3>
               {jobHistory.length > 0 && (
                 <span className="text-xs text-slate-500">{jobHistory.length}건</span>
@@ -397,7 +398,7 @@ const Editor: React.FC = () => {
             {!historyLoading && jobHistory.length === 0 && (
               <div className="flex flex-col items-center gap-1.5 py-8 text-slate-600">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                <p className="text-xs text-center">편집 기록이 없습니다</p>
+                <p className="text-xs text-center">{TAB_INFO.find(t => t.id === activeTab)?.label} 기록이 없습니다</p>
               </div>
             )}
 

@@ -44,7 +44,7 @@ const swaggerSpec = {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
-        description: 'JWT 토큰 (유효기간 7일). 로그인/회원가입 응답의 `data.token` 값을 입력하세요.',
+        description: 'JWT 토큰 (유효기간 30일). 로그인/회원가입 응답의 `data.token` 값을 입력하세요.',
       },
     },
 
@@ -474,11 +474,12 @@ const swaggerSpec = {
                 type: 'object',
                 required: ['prompt'],
                 properties: {
-                  prompt:  { type: 'string', example: '비 오는 도쿄 밤, 시티팝 분위기의 잔잔한 LoFi 트랙' },
-                  genre:   { type: 'string', example: 'City Pop' },
-                  mood:    { type: 'string', example: 'Chill' },
-                  bpm:     { type: 'integer', example: 120 },
+                  prompt:   { type: 'string', example: '비 오는 도쿄 밤, 시티팝 분위기의 잔잔한 LoFi 트랙' },
+                  genre:    { type: 'string', example: 'City Pop' },
+                  mood:     { type: 'string', example: 'Chill' },
+                  bpm:      { type: 'integer', example: 120 },
                   duration: { type: 'integer', example: 180, description: '생성 희망 길이 (초)' },
+                  isPublic: { type: 'boolean', example: true, description: '생성 즉시 공개 여부 (기본값: true)' },
                 },
               },
             },
@@ -510,7 +511,6 @@ const swaggerSpec = {
             },
           },
           402: { description: '크레딧 부족 (code: INSUFFICIENT_CREDITS)', content: { 'application/json': { schema: { '$ref': '#/components/schemas/ErrorResponse' } } } },
-          429: { description: '생성 요청 한도 초과 (분당 10회)', content: { 'application/json': { schema: { '$ref': '#/components/schemas/ErrorResponse' } } } },
           401: { '$ref': '#/components/responses/Unauthorized' },
         },
       },
@@ -1371,7 +1371,41 @@ const swaggerSpec = {
         security: [{ bearerAuth: [] }],
         parameters: [{ name: 'jobId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
         responses: {
-          200: { description: '상태 + 가사', content: { 'application/json': { schema: { allOf: [{ '$ref': '#/components/schemas/SuccessResponse' }, { properties: { data: { type: 'object', properties: { status: { type: 'string', enum: ['pending','done','error'] }, title: { type: 'string', nullable: true }, text: { type: 'string', nullable: true } } } } }] } } } },
+          200: {
+            description: '상태 + 가사',
+            content: {
+              'application/json': {
+                schema: {
+                  allOf: [
+                    { '$ref': '#/components/schemas/SuccessResponse' },
+                    {
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            status:   { type: 'string', enum: ['pending','done','error'] },
+                            title:    { type: 'string', nullable: true, example: 'Rainy Mood' },
+                            text:     { type: 'string', nullable: true, example: '[Verse]\n빗소리 들려...' },
+                            variants: {
+                              type: 'array',
+                              description: 'Suno가 생성한 가사 후보 목록 (보통 2개)',
+                              items: {
+                                type: 'object',
+                                properties: {
+                                  title: { type: 'string' },
+                                  text:  { type: 'string' },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
           401: { '$ref': '#/components/responses/Unauthorized' },
         },
       },
@@ -1489,6 +1523,69 @@ const swaggerSpec = {
         parameters: [{ name: 'jobId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
         responses: {
           200: { description: '상태 + MP4 URL', content: { 'application/json': { schema: { allOf: [{ '$ref': '#/components/schemas/SuccessResponse' }, { properties: { data: { type: 'object', properties: { status: { type: 'string', enum: ['pending','done','error'] }, resultUrl: { type: 'string', nullable: true } } } } }] } } } },
+          401: { '$ref': '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+
+    '/api/editor/jobs': {
+      get: {
+        tags: ['Editor'],
+        summary: '편집 작업 히스토리 조회',
+        description:
+          '로그인 유저의 모든 편집 작업 목록을 최신순으로 반환합니다.\n\n' +
+          '작업 유형: `extend` (트랙 연장) / `lyrics` (가사 생성) / `separate` (보컬 분리) / `wav` (WAV 변환) / `video` (뮤직비디오)\n\n' +
+          '상태: `pending` (처리 중) / `done` (완료) / `error` (실패)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'type', in: 'query',
+            schema: { type: 'string', enum: ['extend', 'lyrics', 'separate', 'wav', 'video'] },
+            description: '특정 작업 유형만 필터 (생략 시 전체 반환)',
+          },
+          {
+            name: 'limit', in: 'query',
+            schema: { type: 'integer', default: 30, minimum: 1, maximum: 100 },
+            description: '최대 반환 개수 (기본값: 30)',
+          },
+        ],
+        responses: {
+          200: {
+            description: '히스토리 조회 성공',
+            content: {
+              'application/json': {
+                schema: {
+                  allOf: [
+                    { '$ref': '#/components/schemas/SuccessResponse' },
+                    {
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            jobs: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                properties: {
+                                  id:          { type: 'string', format: 'uuid', description: 'Job ID (폴링에 사용)' },
+                                  type:        { type: 'string', enum: ['extend','lyrics','separate','wav','video'], example: 'lyrics' },
+                                  status:      { type: 'string', enum: ['pending','done','error'], example: 'done' },
+                                  result_url:  { type: 'string', nullable: true, example: 'https://cdn.suno.ai/...', description: '완료 시 다운로드 URL' },
+                                  extra:       { type: 'string', nullable: true, description: '추가 정보 (JSON 문자열 또는 텍스트)' },
+                                  track_title: { type: 'string', nullable: true, example: 'Rainy Tokyo Night', description: '연관 트랙 제목 (가사 생성은 null)' },
+                                  created_at:  { type: 'string', format: 'date-time' },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
           401: { '$ref': '#/components/responses/Unauthorized' },
         },
       },

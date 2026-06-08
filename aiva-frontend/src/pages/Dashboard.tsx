@@ -127,7 +127,7 @@ const Dashboard: React.FC = () => {
             <div className="flex flex-col gap-3">
               {recentTracks.map(t => (
                 <div key={t.id}
-                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-navy-800/40 transition-colors group cursor-pointer"
+                  className="flex items-center gap-3 p-3 rounded-xl bg-[#080c2a]/60 border border-white/5 hover:border-indigo-500/30 transition-all group cursor-pointer"
                   onClick={() => navigate(`/player/${t.id}`)}>
                   <div className={`w-11 h-11 rounded-xl bg-linear-to-br ${gradColor(t.id)} flex items-center justify-center text-white shrink-0`}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>

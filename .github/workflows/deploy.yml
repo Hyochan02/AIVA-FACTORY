@@ -2,9 +2,9 @@
 # AIVA FACTORY · GitHub Actions CI/CD
 # main 브랜치 push 시 자동 배포:
 #   1. 백엔드 Docker 이미지 빌드 → GHCR push
-#   2. 프론트엔드 빌드 (React)
-#   3. EC2에 SSH 접속 → 이미지 풀 + 재시작
-#   4. 프론트엔드 빌드 결과물 → EC2 nginx/html 복사
+#   2. 프론트엔드 빌드
+#   3. 프론트엔드 빌드 결과물 → EC2 nginx/html 복사
+#   4. EC2에 SSH 접속 → 이미지 pull + backend 재시작
 # =========================================================
 
 name: Deploy to EC2
@@ -16,19 +16,21 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     permissions:
       contents: read
-      packages: write   # GHCR(GitHub Container Registry) 이미지 push 권한
+      packages: write
 
     steps:
       # ── 1. 코드 체크아웃 ──────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── 2. 백엔드 Docker 이미지 빌드 & GHCR push ──────────
+      # ── 2. Docker Buildx 설정 ─────────────────────────────
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # ── 3. GHCR 로그인 ───────────────────────────────────
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -36,33 +38,39 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # ── 4. 이미지 이름 소문자 변환 ────────────────────────
+      - name: Set lowercase image name
+        run: |
+          echo "IMAGE_NAME=ghcr.io/${GITHUB_REPOSITORY,,}/backend:latest" >> $GITHUB_ENV
+
+      # ── 5. 백엔드 Docker 이미지 빌드 & GHCR push ──────────
       - name: Build and push backend image
         uses: docker/build-push-action@v5
         with:
           context: ./aiva-backend
           push: true
-          tags: ghcr.io/${{ github.repository }}/backend:latest
-          cache-from: type=gha          # GitHub Actions 빌드 캐시 활용
+          tags: ${{ env.IMAGE_NAME }}
+          cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # ── 3. 프론트엔드 빌드 ────────────────────────────────
+      # ── 6. Node.js 설정 ──────────────────────────────────
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
           cache-dependency-path: aiva-frontend/package-lock.json
 
+      # ── 7. 프론트엔드 빌드 ────────────────────────────────
       - name: Build frontend
         working-directory: aiva-frontend
         run: |
           npm ci
           npm run build
         env:
-          # 프로덕션 API URL (EC2 도메인 또는 IP)
           VITE_API_BASE_URL: https://${{ secrets.EC2_HOST }}
 
-      # ── 4. EC2에 프론트엔드 파일 복사 ─────────────────────
+      # ── 8. EC2에 프론트엔드 파일 복사 ─────────────────────
       - name: Copy frontend dist to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -71,9 +79,9 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           source: "aiva-frontend/dist/"
           target: "/home/ubuntu/aiva-factory/nginx/html/"
-          strip_components: 2           # aiva-frontend/dist/ 경로 제거
+          strip_components: 2
 
-      # ── 5. EC2 SSH 접속 → Docker 재시작 ───────────────────
+      # ── 9. EC2 SSH 접속 → Docker 재시작 ───────────────────
       - name: Deploy on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -83,19 +91,14 @@ jobs:
           script: |
             cd /home/ubuntu/aiva-factory
 
-            # GHCR 로그인
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            # 최신 백엔드 이미지 풀
             docker compose -f docker-compose.prod.yml pull backend
 
-            # 백엔드만 무중단 재시작 (MySQL은 그대로 유지)
             docker compose -f docker-compose.prod.yml up -d --no-deps backend
 
-            # Nginx 설정 리로드 (프론트엔드 정적파일 반영)
             docker compose -f docker-compose.prod.yml exec -T nginx nginx -s reload
 
-            # 오래된 이미지 정리
             docker image prune -f
 
             echo "✅ 배포 완료: $(date)"

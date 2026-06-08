@@ -118,7 +118,6 @@
 }
 .glass {
   backdrop-filter: blur(12px);
-  background: rgba(13, 19, 64, 0.85);
-  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
-.glow { box-shadow: var(--shadow-glow); }

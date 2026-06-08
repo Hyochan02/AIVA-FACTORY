@@ -23,3 +23,9 @@ export const logout = () => {
 }
 
 export const getMe = () => apiClient.get('/auth/me')
+
+export const updateMe = (payload: { name?: string; avatar?: string }) =>
+  apiClient.patch('/auth/me', payload)
+
+export const changePassword = (payload: { currentPassword: string; newPassword: string }) =>
+  apiClient.patch('/auth/password', payload)

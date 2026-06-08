@@ -181,3 +181,44 @@ INSERT IGNORE INTO credit_history (id, user_id, type, amount, balance, descripti
   ('init-credit-001', 'dev-user-001', 'grant', 100, 100, '가입 축하 크레딧');
 
 INSERT IGNORE INTO notification_settings (user_id) VALUES ('dev-user-001');
+
+-- ─────────────────────────────────────────────────────────
+-- 마이그레이션: track_versions 컬럼 추가 (v2)
+-- 이미 컬럼이 있으면 무시 (IF NOT EXISTS 미지원 → 에러 무시)
+-- ─────────────────────────────────────────────────────────
+ALTER TABLE track_versions
+  ADD COLUMN IF NOT EXISTS suno_audio_id VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS stream_url    VARCHAR(500),
+  ADD COLUMN IF NOT EXISTS image_url     VARCHAR(500),
+  ADD COLUMN IF NOT EXISTS title         VARCHAR(255);
+
+-- ─────────────────────────────────────────────────────────
+-- Suno 비동기 작업 추적 테이블 (extend / lyrics / separate / wav / video)
+-- ─────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS suno_jobs (
+  id            VARCHAR(36)  PRIMARY KEY,
+  track_id      VARCHAR(36),                            -- NULL 허용 (lyrics는 트랙 무관)
+  type          ENUM('extend','lyrics','separate','wav','video') NOT NULL,
+  suno_task_id  VARCHAR(255) NOT NULL,
+  status        ENUM('pending','done','error') DEFAULT 'pending',
+  result_url    VARCHAR(500),
+  extra         JSON,
+  created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_suno_task (suno_task_id),
+  INDEX idx_track_id  (track_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ─────────────────────────────────────────────────────────
+-- 비밀번호 재설정 토큰 테이블
+-- ─────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS password_resets (
+  id         VARCHAR(36)  PRIMARY KEY,
+  user_id    VARCHAR(36)  NOT NULL,
+  token      VARCHAR(255) NOT NULL UNIQUE,
+  expires_at DATETIME     NOT NULL,
+  used       TINYINT(1)   DEFAULT 0,
+  created_at DATETIME     DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_token (token)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

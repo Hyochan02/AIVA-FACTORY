@@ -211,3 +211,74 @@ router.put('/password', authenticate, async (req, res, next) => {
 })
 
 export default router
+
+// ── POST /api/auth/forgot-password ────────────────────────
+// 이메일로 비밀번호 재설정 토큰 발송
+router.post('/forgot-password', async (req, res, next) => {
+  try {
+    const { email } = req.body
+    if (!email) { res.status(400).json({ success: false, error: '이메일을 입력해주세요.' }); return }
+
+    const conn = await pool.getConnection()
+    try {
+      const [rows] = await conn.query('SELECT id FROM users WHERE email = ?', [email])
+      const user = (rows as Record<string, unknown>[])[0]
+
+      // 보안: 이메일 존재 여부와 관계없이 동일한 응답 반환 (이메일 열거 공격 방지)
+      if (user) {
+        const token   = uuidv4()
+        const expires = new Date(Date.now() + 60 * 60 * 1000) // 1시간
+        await conn.query(
+          'DELETE FROM password_resets WHERE user_id = ?',
+          [user.id]
+        )
+        await conn.query(
+          `INSERT INTO password_resets (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)`,
+          [uuidv4(), user.id, token, expires]
+        )
+        // TODO: 실제 이메일 발송 (SendGrid / AWS SES)
+        // 현재는 개발용으로 토큰을 응답에 포함 (프로덕션에서는 제거 필요)
+        if (process.env.NODE_ENV === 'development') {
+          res.json({ success: true, message: '비밀번호 재설정 링크가 발송되었습니다.', _devToken: token })
+          return
+        }
+      }
+
+      res.json({ success: true, message: '입력하신 이메일로 재설정 링크를 발송했습니다.' })
+    } finally { conn.release() }
+  } catch (err) { next(err) }
+})
+
+// ── POST /api/auth/reset-password ─────────────────────────
+// 토큰으로 비밀번호 재설정
+router.post('/reset-password', async (req, res, next) => {
+  try {
+    const { token, newPassword } = req.body
+    if (!token || !newPassword) {
+      res.status(400).json({ success: false, error: '토큰과 새 비밀번호를 입력해주세요.' })
+      return
+    }
+    if (newPassword.length < 8) {
+      res.status(400).json({ success: false, error: '비밀번호는 8자 이상이어야 합니다.' })
+      return
+    }
+
+    const conn = await pool.getConnection()
+    try {
+      const [rows] = await conn.query(
+        "SELECT * FROM password_resets WHERE token = ? AND used = 0 AND expires_at > NOW()",
+        [token]
+      )
+      const reset = (rows as Record<string, unknown>[])[0]
+      if (!reset) {
+        res.status(400).json({ success: false, error: '유효하지 않거나 만료된 링크입니다.' })
+        return
+      }
+
+      const hash = await bcrypt.hash(newPassword, 12)
+      await conn.query('UPDATE users SET password = ? WHERE id = ?', [hash, reset.user_id])
+      await conn.query('UPDATE password_resets SET used = 1 WHERE id = ?', [reset.id])
+      res.json({ success: true, message: '비밀번호가 성공적으로 변경되었습니다.' })
+    } finally { conn.release() }
+  } catch (err) { next(err) }
+})

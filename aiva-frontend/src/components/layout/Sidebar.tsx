@@ -1,5 +1,6 @@
-﻿import React from 'react'
+import React from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 import { Badge } from '../common/Badge'
 import { Button } from '../common/Button'
 
@@ -102,6 +103,7 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
 
 export const Sidebar: React.FC = () => {
   const navigate = useNavigate()
+  const { user, logout } = useAuth()
 
   return (
     <aside
@@ -141,6 +143,24 @@ export const Sidebar: React.FC = () => {
           </div>
         ))}
       </nav>
+
+      {/* 사용자 정보 + 로그아웃 */}
+      <div className="px-3 py-2 border-t border-(--border-color) flex items-center gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="text-xs font-bold text-white truncate">{user?.name ?? '사용자'}</div>
+          <div className="text-[10px] text-slate-500 truncate">{user?.email ?? ''}</div>
+        </div>
+        <button
+          onClick={logout}
+          title="로그아웃"
+          className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:text-rose-400 hover:bg-rose-900/20 transition-all shrink-0"
+          aria-label="로그아웃"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </button>
+      </div>
 
       {/* 업그레이드 CTA */}
       <div className="p-3 border-t border-(--border-color)">

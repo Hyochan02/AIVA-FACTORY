@@ -1,180 +1,457 @@
-﻿import React, { useState, useMemo } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Button } from '../components/common/Button'
-import { Waveform } from '../components/common/Waveform'
+import { getTracks } from '../api/tracks'
+import {
+  extendTrack, pollExtend,
+  generateLyrics, pollLyrics,
+  separateVocals, pollSeparate,
+  convertWav, pollWav,
+  createVideo, pollVideo,
+} from '../api/editor'
+import type { LyricsResult, SeparateResult } from '../api/editor'
 
-const TRACKS_DATA = [
-  { id: 'melody', label: '멜로디', color: '#6366f1', vol: 80, muted: false },
-  { id: 'bass',   label: '베이스', color: '#8b5cf6', vol: 70, muted: false },
-  { id: 'drums',  label: '드럼',   color: '#a78bfa', vol: 75, muted: false },
-  { id: 'synth',  label: '신스',   color: '#4338ca', vol: 60, muted: true  },
+type Tab = 'extend' | 'lyrics' | 'separate' | 'wav' | 'video'
+
+interface TrackItem { id: string; title: string; genre?: string; status: string }
+
+// ── 폴링 훅 ─────────────────────────────────────────────────
+function usePoller<T>(
+  pollFn: (jobId: string) => Promise<unknown>,
+  onDone: (data: T) => void,
+) {
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [jobId, setJobId]   = useState<string | null>(null)
+  const [polling, setPolling] = useState(false)
+
+  const start = (id: string) => {
+    setJobId(id)
+    setPolling(true)
+  }
+
+  useEffect(() => {
+    if (!jobId || !polling) return
+    const check = async () => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const res = await pollFn(jobId) as any
+        const data = res.data as { status: string } & T
+        if (data.status === 'done') {
+          setPolling(false)
+          if (intervalRef.current) clearInterval(intervalRef.current)
+          onDone(data as T)
+        }
+      } catch {}
+    }
+    check()
+    intervalRef.current = setInterval(check, 3000)
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobId, polling])
+
+  return { start, polling }
+}
+
+// ──────────────────────────────────────────────────────────
+const TAB_INFO: { id: Tab; label: string; icon: string; desc: string; credit: number }[] = [
+  { id: 'extend',   label: '음악 연장',    icon: '🎵', desc: '기존 트랙을 이어서 연장합니다',        credit: 4  },
+  { id: 'lyrics',   label: '가사 생성',    icon: '📝', desc: 'AI로 가사를 자동 생성합니다',          credit: 2  },
+  { id: 'separate', label: '보컬 분리',    icon: '🎙️', desc: '보컬과 반주를 분리합니다',             credit: 10 },
+  { id: 'wav',      label: 'WAV 변환',     icon: '💾', desc: '고음질 WAV 파일로 변환합니다',         credit: 2  },
+  { id: 'video',    label: '뮤직비디오',   icon: '🎬', desc: 'MP4 비디오를 자동 생성합니다',         credit: 5  },
 ]
-const EFFECTS = ['리버브', '딜레이', 'EQ', '컴프레서', '코러스']
-
-type TrackState = { vol: number; muted: boolean }
 
 const Editor: React.FC = () => {
-  const [isPlaying, setIsPlaying]     = useState(false)
-  const [progress, setProgress]       = useState(0.25)
-  const [activeEffect, setActiveEffect] = useState('리버브')
-  const [trackStates, setTrackStates] = useState<Record<string, TrackState>>(
-    Object.fromEntries(TRACKS_DATA.map(t => [t.id, { vol: t.vol, muted: t.muted }]))
+  const [searchParams]          = useSearchParams()
+  const initTrackId             = searchParams.get('trackId') ?? ''
+
+  const [activeTab, setActiveTab]   = useState<Tab>('extend')
+  const [tracks, setTracks]         = useState<TrackItem[]>([])
+  const [selectedTrackId, setSelectedTrackId] = useState(initTrackId)
+  const [loading, setLoading]       = useState(false)
+  const [error, setError]           = useState('')
+  const [successMsg, setSuccessMsg] = useState('')
+
+  // ── extend ────
+  const [extendPrompt, setExtendPrompt]   = useState('')
+  const [extendStyle, setExtendStyle]     = useState('')
+  const [continueAt, setContinueAt]       = useState(60)
+  const [extendResult, setExtendResult]   = useState<{ audioUrl: string } | null>(null)
+  const extendPoller = usePoller<{ audioUrl: string }>(pollExtend, (d) => {
+    setExtendResult(d); setLoading(false); setSuccessMsg('음악이 연장되었습니다!')
+  })
+
+  // ── lyrics ────
+  const [lyricsPrompt, setLyricsPrompt] = useState('')
+  const [lyricsResult, setLyricsResult] = useState<LyricsResult | null>(null)
+  const lyricsPoller = usePoller<LyricsResult>(
+    (id) => pollLyrics(id),
+    (d) => { setLyricsResult(d); setLoading(false); setSuccessMsg('가사가 생성되었습니다!') }
   )
 
-  const updateTrack = (id: string, patch: Partial<TrackState>) =>
-    setTrackStates(p => ({ ...p, [id]: { ...p[id], ...patch } }))
+  // ── separate ──
+  const [separateType, setSeparateType] = useState<'separate_vocal' | 'split_stem'>('separate_vocal')
+  const [separateResult, setSeparateResult] = useState<SeparateResult | null>(null)
+  const separatePoller = usePoller<SeparateResult>(
+    (id) => pollSeparate(id),
+    (d) => { setSeparateResult(d); setLoading(false); setSuccessMsg('보컬/악기가 분리되었습니다!') }
+  )
 
-  const trackBars = useMemo(
-    () => Object.fromEntries(
-      TRACKS_DATA.map(t => [t.id, Array.from({ length: 60 }, () => 0.15 + Math.random() * 0.85)])
-    ),
-    []
+  // ── wav ───────
+  const [wavVersion, setWavVersion]     = useState(1)
+  const [wavUrl, setWavUrl]             = useState('')
+  const wavPoller = usePoller<{ wavUrl: string }>(
+    (id) => pollWav(id),
+    (d) => { setWavUrl(d.wavUrl ?? ''); setLoading(false); setSuccessMsg('WAV 변환이 완료되었습니다!') }
+  )
+
+  // ── video ─────
+  const [videoUrl, setVideoUrl]         = useState('')
+  const videoPoller = usePoller<{ videoUrl: string }>(
+    (id) => pollVideo(id),
+    (d) => { setVideoUrl(d.videoUrl ?? ''); setLoading(false); setSuccessMsg('뮤직비디오가 생성되었습니다!') }
+  )
+
+  // 완료된 트랙 목록
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    getTracks({ limit: 50 }).then((res: any) => {
+      const items: TrackItem[] = (res.data?.items ?? []).filter((t: TrackItem) => t.status === 'done')
+      setTracks(items)
+      if (!selectedTrackId && items.length > 0) setSelectedTrackId(items[0].id)
+    }).catch(() => {})
+  }, [selectedTrackId])
+
+  const clearMessages = () => { setError(''); setSuccessMsg('') }
+
+  const handleAction = async () => {
+    if (!selectedTrackId && activeTab !== 'lyrics') {
+      setError('트랙을 선택해주세요.')
+      return
+    }
+    clearMessages()
+    setLoading(true)
+
+    try {
+      if (activeTab === 'extend') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const res = await extendTrack({ trackId: selectedTrackId, prompt: extendPrompt, style: extendStyle, continueAt }) as any
+        extendPoller.start(res.data.jobId)
+      } else if (activeTab === 'lyrics') {
+        if (!lyricsPrompt.trim()) { setError('가사 주제를 입력하세요.'); setLoading(false); return }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const res = await generateLyrics({ prompt: lyricsPrompt }) as any
+        lyricsPoller.start(res.data.jobId)
+      } else if (activeTab === 'separate') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const res = await separateVocals({ trackId: selectedTrackId, type: separateType }) as any
+        separatePoller.start(res.data.jobId)
+      } else if (activeTab === 'wav') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const res = await convertWav({ trackId: selectedTrackId, versionNum: wavVersion }) as any
+        wavPoller.start(res.data.jobId)
+      } else if (activeTab === 'video') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const res = await createVideo({ trackId: selectedTrackId }) as any
+        videoPoller.start(res.data.jobId)
+      }
+    } catch (err: unknown) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const msg = (err as any)?.response?.data?.error ?? '요청에 실패했습니다.'
+      setError(msg)
+      setLoading(false)
+    }
+  }
+
+  const tabInfo = TAB_INFO.find(t => t.id === activeTab)!
+  const isPolling = (
+    (activeTab === 'extend'   && extendPoller.polling)   ||
+    (activeTab === 'lyrics'   && lyricsPoller.polling)   ||
+    (activeTab === 'separate' && separatePoller.polling) ||
+    (activeTab === 'wav'      && wavPoller.polling)      ||
+    (activeTab === 'video'    && videoPoller.polling)
   )
 
   return (
-    <div className="max-w-6xl mx-auto space-y-5">
+    <div className="max-w-5xl mx-auto space-y-6">
 
-      {/* ── 툴바 ── */}
-      <div className="flex items-center gap-3 bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-4">
-        <div className="font-bold text-white text-sm truncate w-36 shrink-0">Rainy Tokyo Night</div>
-
-        {/* 재생 컨트롤 */}
-        <div className="flex items-center gap-2 shrink-0">
-          <button className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-navy-700 transition-all">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
-          </button>
+      {/* ─ 탭 바 ─ */}
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {TAB_INFO.map(t => (
           <button
-            onClick={() => setIsPlaying(p => !p)}
-            className="w-10 h-10 rounded-xl bg-linear-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-lg shadow-indigo-900/40 hover:scale-105 transition-transform"
+            key={t.id}
+            onClick={() => { setActiveTab(t.id); clearMessages() }}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap border transition-all shrink-0 ${
+              activeTab === t.id
+                ? 'bg-indigo-600/20 border-indigo-500/60 text-indigo-300'
+                : 'border-[rgba(129,140,248,0.15)] text-slate-400 hover:border-indigo-700/50'
+            }`}
           >
-            {isPlaying
-              ? <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-              : <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-            }
+            <span>{t.icon}</span>
+            <span>{t.label}</span>
+            <span className="text-xs opacity-60">({t.credit}크)</span>
           </button>
-          <button className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-navy-700 transition-all">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-          </button>
-        </div>
-
-        {/* 시크 슬라이더 */}
-        <div className="flex items-center gap-2 flex-1 max-w-xs">
-          <span className="text-xs text-slate-400 font-mono w-16 shrink-0">
-            {Math.floor(progress * 154)}s / 2:34
-          </span>
-          <input
-            type="range" min={0} max={100} value={Math.round(progress * 100)}
-            onChange={e => setProgress(Number(e.target.value) / 100)}
-            className="flex-1 accent-indigo-500 h-1"
-          />
-        </div>
-
-        <div className="ml-auto flex gap-2">
-          <Button variant="secondary" size="sm">되돌리기</Button>
-          <Button variant="primary" size="sm">⬇ 내보내기</Button>
-        </div>
+        ))}
       </div>
 
-      {/* ── 타임라인 ── */}
-      <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl overflow-hidden">
-        {/* 타임 룰러 — 컨트롤 패널 너비(w-44)와 동일한 spacer */}
-        <div className="flex h-8 bg-[#080c2a] border-b border-[rgba(129,140,248,0.1)]">
-          <div className="w-44 shrink-0 border-r border-[rgba(129,140,248,0.1)]" />
-          <div className="flex-1 flex">
-            {Array.from({ length: 9 }).map((_, i) => (
-              <div key={i} className="flex-1 text-[10px] text-slate-600 border-l border-navy-800 pl-1 flex items-center">
-                {Math.floor(i * 154 / 8)}s
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* ─ 왼쪽: 설정 패널 ─ */}
+        <div className="lg:col-span-2 space-y-5">
+          {/* 설명 카드 */}
+          <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-5">
+            <div className="flex items-center gap-3 mb-1">
+              <span className="text-2xl">{tabInfo.icon}</span>
+              <div>
+                <h2 className="text-base font-black text-white">{tabInfo.label}</h2>
+                <p className="text-xs text-slate-400">{tabInfo.desc} · 크레딧 {tabInfo.credit}개 소모</p>
               </div>
-            ))}
+            </div>
           </div>
-        </div>
 
-        {/* 트랙 레인 — items-stretch 로 컨트롤 패널이 파형 레인과 동일 높이 */}
-        {TRACKS_DATA.map(t => {
-          const state = trackStates[t.id]
-          return (
-            <div key={t.id} className="flex items-stretch border-b border-[rgba(129,140,248,0.1)] last:border-0">
+          {/* 트랙 선택 (lyrics 제외) */}
+          {activeTab !== 'lyrics' && (
+            <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-5">
+              <label className="block text-sm font-bold text-white mb-3">대상 트랙 선택</label>
+              {tracks.length === 0 ? (
+                <p className="text-slate-500 text-sm">완료된 트랙이 없습니다. 먼저 음악을 생성해주세요.</p>
+              ) : (
+                <select
+                  value={selectedTrackId}
+                  onChange={e => setSelectedTrackId(e.target.value)}
+                  className="w-full bg-[#080c2a] border border-[rgba(129,140,248,0.15)] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                >
+                  {tracks.map(t => (
+                    <option key={t.id} value={t.id}>{t.title} {t.genre ? `(${t.genre})` : ''}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
 
-              {/* 트랙 컨트롤 — w-44 고정, overflow-hidden 으로 경계 밖 출혈 방지 */}
-              <div className="w-44 shrink-0 flex flex-col justify-center gap-2 px-3 py-2 bg-[#0a1035] border-r border-[rgba(129,140,248,0.1)] overflow-hidden">
-                <div className="text-xs font-semibold text-white leading-none">{t.label}</div>
-                <div className="flex items-center gap-2">
-                  {/* M 버튼 — 고정 크기 */}
-                  <button
-                    onClick={() => updateTrack(t.id, { muted: !state.muted })}
-                    className={`w-5 h-5 shrink-0 text-[10px] rounded flex items-center justify-center font-bold transition-all ${
-                      state.muted ? 'bg-red-900/40 text-red-400' : 'bg-navy-700 text-slate-400'
-                    }`}
-                  >
-                    M
-                  </button>
-                  {/* 볼륨 슬라이더 — min-w-0 으로 flex 오버플로우 방지 */}
-                  <input
-                    type="range" min={0} max={100} value={state.vol}
-                    onChange={e => updateTrack(t.id, { vol: Number(e.target.value) })}
-                    className="flex-1 min-w-0 h-1 accent-indigo-500"
-                  />
-                  {/* 볼륨 값 — 우정렬, shrink-0 으로 자리 확보 */}
-                  <span className="w-7 shrink-0 text-[10px] text-slate-500 text-right">{state.vol}</span>
+          {/* ── 탭별 옵션 ── */}
+
+          {/* Extend */}
+          {activeTab === 'extend' && (
+            <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-5 space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-white mb-2">
+                  연장 시작 위치 (초)
+                </label>
+                <input
+                  type="number" min={0} max={300} value={continueAt}
+                  onChange={e => setContinueAt(Number(e.target.value))}
+                  className="w-32 bg-[#080c2a] border border-[rgba(129,140,248,0.15)] rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                />
+                <p className="text-xs text-slate-500 mt-1">기존 트랙의 이 위치부터 이어서 생성합니다</p>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-white mb-2">추가 프롬프트 (선택)</label>
+                <textarea
+                  value={extendPrompt}
+                  onChange={e => setExtendPrompt(e.target.value)}
+                  placeholder="예: 더 신나게, 기타 솔로 추가..."
+                  rows={3}
+                  className="w-full bg-[#080c2a] border border-[rgba(129,140,248,0.15)] rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 resize-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-white mb-2">스타일 (선택)</label>
+                <input
+                  value={extendStyle}
+                  onChange={e => setExtendStyle(e.target.value)}
+                  placeholder="예: jazz, upbeat, electronic..."
+                  className="w-full bg-[#080c2a] border border-[rgba(129,140,248,0.15)] rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Lyrics */}
+          {activeTab === 'lyrics' && (
+            <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-5">
+              <label className="block text-sm font-bold text-white mb-2">
+                가사 주제 / 컨셉 <span className="text-indigo-400">*</span>
+              </label>
+              <textarea
+                value={lyricsPrompt}
+                onChange={e => setLyricsPrompt(e.target.value)}
+                placeholder="예: 비 오는 서울 밤, 이별의 감성, 재즈 발라드 스타일..."
+                rows={4}
+                className="w-full bg-[#080c2a] border border-[rgba(129,140,248,0.15)] rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 resize-none"
+              />
+            </div>
+          )}
+
+          {/* Separate */}
+          {activeTab === 'separate' && (
+            <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-5 space-y-3">
+              <label className="block text-sm font-bold text-white mb-2">분리 모드</label>
+              <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${separateType === 'separate_vocal' ? 'border-indigo-500/60 bg-indigo-600/10' : 'border-[rgba(129,140,248,0.15)]'}`}>
+                <input type="radio" name="sep" value="separate_vocal" checked={separateType === 'separate_vocal'} onChange={() => setSeparateType('separate_vocal')} className="mt-0.5 accent-indigo-500" />
+                <div>
+                  <div className="text-sm font-bold text-white">보컬 + 반주 분리 (10크레딧)</div>
+                  <div className="text-xs text-slate-400 mt-0.5">2개 파일 반환: 보컬, 반주</div>
                 </div>
-              </div>
-
-              {/* 파형 레인 — h-16 고정, relative 로 커서 위치 기준 */}
-              <div
-                className="flex-1 h-16 relative px-2 flex items-center"
-                style={{ opacity: state.muted ? 0.3 : 1 }}
-              >
-                <Waveform
-                  bars={trackBars[t.id]}
-                  progress={progress}
-                  color={`${t.color}30`}
-                  playedColor={t.color}
-                  className="w-full h-12"
-                  onSeek={setProgress}
-                />
-                {/* 재생 커서 — px-2(8px) 패딩 반영 */}
-                <div
-                  className="absolute top-0 bottom-0 w-px bg-white/60 pointer-events-none"
-                  style={{ left: `calc(8px + ${progress} * (100% - 16px))` }}
-                />
-              </div>
+              </label>
+              <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${separateType === 'split_stem' ? 'border-indigo-500/60 bg-indigo-600/10' : 'border-[rgba(129,140,248,0.15)]'}`}>
+                <input type="radio" name="sep" value="split_stem" checked={separateType === 'split_stem'} onChange={() => setSeparateType('split_stem')} className="mt-0.5 accent-indigo-500" />
+                <div>
+                  <div className="text-sm font-bold text-white">전체 악기 분리 (50크레딧)</div>
+                  <div className="text-xs text-slate-400 mt-0.5">최대 12개 파일: 보컬, 드럼, 베이스, 기타, 키보드 등</div>
+                </div>
+              </label>
             </div>
-          )
-        })}
-      </div>
+          )}
 
-      {/* ── 이펙터 ── */}
-      <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-5">
-        <div className="flex items-center gap-3 mb-4">
-          <h3 className="text-sm font-bold text-white">이펙터</h3>
-          <div className="flex gap-2 flex-wrap">
-            {EFFECTS.map(e => (
-              <button
-                key={e} onClick={() => setActiveEffect(e)}
-                className={`px-3 py-1 text-xs font-semibold rounded-full border transition-all ${activeEffect === e ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-300' : 'border-[rgba(129,140,248,0.15)] text-slate-400'}`}
-              >
-                {e}
-              </button>
-            ))}
+          {/* WAV */}
+          {activeTab === 'wav' && (
+            <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-5">
+              <label className="block text-sm font-bold text-white mb-3">변환할 버전</label>
+              <div className="flex gap-3">
+                {[1, 2].map(v => (
+                  <button
+                    key={v}
+                    onClick={() => setWavVersion(v)}
+                    className={`px-4 py-2 rounded-xl border text-sm font-bold transition-all ${
+                      wavVersion === v
+                        ? 'bg-indigo-600/20 border-indigo-500/60 text-indigo-300'
+                        : 'border-[rgba(129,140,248,0.15)] text-slate-400'
+                    }`}
+                  >버전 {v}</button>
+                ))}
+              </div>
+              <p className="text-xs text-slate-500 mt-2">WAV 파일은 15일간 보관됩니다</p>
+            </div>
+          )}
+
+          {/* Video - 추가 설정 없음 */}
+          {activeTab === 'video' && (
+            <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-5">
+              <p className="text-sm text-slate-400">선택한 트랙으로 비주얼 이펙트가 포함된 MP4 뮤직비디오를 생성합니다.</p>
+              <p className="text-xs text-slate-500 mt-2">생성된 비디오는 15일간 보관됩니다.</p>
+            </div>
+          )}
+
+          {/* 오류 / 성공 메시지 */}
+          {error && (
+            <div className="bg-red-900/30 border border-red-700/40 rounded-xl p-4 text-sm text-red-300">{error}</div>
+          )}
+          {successMsg && (
+            <div className="bg-green-900/30 border border-green-700/40 rounded-xl p-4 text-sm text-green-300">{successMsg}</div>
+          )}
+
+          {/* 실행 버튼 */}
+          <Button
+            variant="primary"
+            size="lg"
+            fullWidth
+            onClick={handleAction}
+            disabled={loading || isPolling || (activeTab !== 'lyrics' && !selectedTrackId)}
+          >
+            {isPolling ? (
+              <span className="flex items-center gap-2">
+                <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                처리 중... (완료까지 30~120초)
+              </span>
+            ) : loading ? '요청 중...' : `${tabInfo.icon} ${tabInfo.label} 시작`}
+          </Button>
+        </div>
+
+        {/* ─ 오른쪽: 결과 패널 ─ */}
+        <div className="space-y-5">
+          <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-5">
+            <h3 className="text-sm font-bold text-white mb-4">결과</h3>
+
+            {/* Extend 결과 */}
+            {activeTab === 'extend' && extendResult && (
+              <div className="space-y-3">
+                <p className="text-xs text-green-400">✓ 연장 완료</p>
+                <audio controls src={extendResult.audioUrl} className="w-full" />
+                <a href={extendResult.audioUrl} download className="block text-center text-xs text-indigo-400 hover:text-indigo-300">다운로드</a>
+              </div>
+            )}
+
+            {/* Lyrics 결과 */}
+            {activeTab === 'lyrics' && lyricsResult?.status === 'done' && (
+              <div className="space-y-2">
+                {lyricsResult.title && <p className="text-sm font-bold text-white">{lyricsResult.title}</p>}
+                <pre className="text-xs text-slate-300 whitespace-pre-wrap leading-relaxed max-h-72 overflow-y-auto">{lyricsResult.text}</pre>
+                <button
+                  onClick={() => navigator.clipboard.writeText(lyricsResult.text ?? '')}
+                  className="text-xs text-indigo-400 hover:text-indigo-300"
+                >복사하기</button>
+              </div>
+            )}
+
+            {/* Separate 결과 */}
+            {activeTab === 'separate' && separateResult?.status === 'done' && (
+              <div className="space-y-3">
+                {separateResult.vocalUrl && (
+                  <div>
+                    <p className="text-xs text-slate-400 mb-1">보컬</p>
+                    <audio controls src={separateResult.vocalUrl} className="w-full" />
+                  </div>
+                )}
+                {separateResult.instrumentalUrl && (
+                  <div>
+                    <p className="text-xs text-slate-400 mb-1">반주</p>
+                    <audio controls src={separateResult.instrumentalUrl} className="w-full" />
+                  </div>
+                )}
+                {separateResult.drumsUrl && (
+                  <div>
+                    <p className="text-xs text-slate-400 mb-1">드럼</p>
+                    <audio controls src={separateResult.drumsUrl} className="w-full" />
+                  </div>
+                )}
+                {separateResult.bassUrl && (
+                  <div>
+                    <p className="text-xs text-slate-400 mb-1">베이스</p>
+                    <audio controls src={separateResult.bassUrl} className="w-full" />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* WAV 결과 */}
+            {activeTab === 'wav' && wavUrl && (
+              <div className="space-y-2">
+                <p className="text-xs text-green-400">✓ WAV 변환 완료</p>
+                <a
+                  href={wavUrl}
+                  download
+                  className="block w-full text-center py-2.5 rounded-xl border border-indigo-500/60 text-sm font-bold text-indigo-300 hover:bg-indigo-600/20 transition-all"
+                >
+                  ↓ WAV 파일 다운로드
+                </a>
+              </div>
+            )}
+
+            {/* Video 결과 */}
+            {activeTab === 'video' && videoUrl && (
+              <div className="space-y-2">
+                <p className="text-xs text-green-400">✓ 뮤직비디오 생성 완료</p>
+                <video controls src={videoUrl} className="w-full rounded-lg" />
+                <a href={videoUrl} download className="block text-center text-xs text-indigo-400 hover:text-indigo-300">다운로드</a>
+              </div>
+            )}
+
+            {/* 빈 상태 */}
+            {!(
+              (activeTab === 'extend' && extendResult) ||
+              (activeTab === 'lyrics' && lyricsResult?.status === 'done') ||
+              (activeTab === 'separate' && separateResult?.status === 'done') ||
+              (activeTab === 'wav' && wavUrl) ||
+              (activeTab === 'video' && videoUrl)
+            ) && (
+              <div className="text-center py-8 text-slate-600">
+                <p className="text-3xl mb-2">{tabInfo.icon}</p>
+                <p className="text-xs">결과가 여기에 표시됩니다</p>
+              </div>
+            )}
           </div>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { label: '믹스',     val: 45 },
-            { label: '룸 사이즈', val: 60 },
-            { label: '디케이',   val: 70 },
-            { label: '프리딜레이', val: 30 },
-          ].map(p => (
-            <div key={p.label}>
-              <div className="flex justify-between text-xs mb-1.5">
-                <span className="text-slate-400">{p.label}</span>
-                <span className="font-bold text-indigo-300">{p.val}%</span>
-              </div>
-              <input type="range" min={0} max={100} defaultValue={p.val} className="w-full accent-indigo-500 h-1" />
-            </div>
-          ))}
-        </div>
       </div>
-
     </div>
   )
 }

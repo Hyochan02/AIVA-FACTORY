@@ -1,57 +1,113 @@
-﻿import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Button } from '../components/common/Button'
 import { Badge } from '../components/common/Badge'
 import { Toggle } from '../components/common/Toggle'
+import { useAuth } from '../context/AuthContext'
+import { updateMe, changePassword } from '../api/auth'
 
 type Tab = 'account' | 'notification' | 'security' | 'subscription'
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'account', label: '계정 정보' },
+  { id: 'account',      label: '계정 정보' },
   { id: 'notification', label: '알림 설정' },
-  { id: 'security', label: '보안' },
+  { id: 'security',     label: '보안' },
   { id: 'subscription', label: '구독 관리' },
 ]
 
 const Profile: React.FC = () => {
-  const [tab, setTab] = useState<Tab>('account')
-  const [name, setName] = useState('진효찬')
-  const [email] = useState('hyochan02@gmail.com')
-  const [saved, setSaved] = useState(false)
-  const [notifications, setNotifications] = useState([
-    { id: 'gen',      label: '생성 완료 알림',  desc: '트랙 생성이 완료되면 알립니다',       on: true },
-    { id: 'credit',   label: '크레딧 부족 알림', desc: '크레딧이 20개 미만이면 알립니다',     on: true },
-    { id: 'like',     label: '커뮤니티 좋아요',  desc: '내 트랙에 좋아요가 달리면 알립니다', on: false },
-    { id: 'follow',   label: '새 팔로워',        desc: '누군가 나를 팔로우하면 알립니다',     on: false },
-    { id: 'marketing',label: '마케팅 이메일',    desc: 'AIVA의 새 기능 및 혜택 소식',        on: false },
-  ])
+  const { user, refreshUser } = useAuth()
+  const [tab, setTab]         = useState<Tab>('account')
 
+  // ── 계정 정보 ───────────────────────────────────────────
+  const [name, setName]     = useState(user?.name ?? '')
+  const [saving, setSaving] = useState(false)
+  const [saveMsg, setSaveMsg] = useState('')
+
+  // user가 로드되면 name 초기값 설정
+  useEffect(() => {
+    if (user?.name) setName(user.name)
+  }, [user?.name])
+
+  const handleSave = async () => {
+    setSaving(true)
+    setSaveMsg('')
+    try {
+      await updateMe({ name })
+      await refreshUser()   // 컨텍스트의 user 최신화
+      setSaveMsg('저장됨')
+      setTimeout(() => setSaveMsg(''), 2000)
+    } catch (e) {
+      setSaveMsg(e instanceof Error ? e.message : '저장 실패')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // ── 알림 설정 ───────────────────────────────────────────
+  const [notifications, setNotifications] = useState([
+    { id: 'gen',       label: '생성 완료 알림',   desc: '트랙 생성이 완료되면 알립니다',       on: true  },
+    { id: 'credit',    label: '크레딧 부족 알림',  desc: '크레딧이 20개 미만이면 알립니다',     on: true  },
+    { id: 'like',      label: '커뮤니티 좋아요',   desc: '내 트랙에 좋아요가 달리면 알립니다', on: false },
+    { id: 'follow',    label: '새 팔로워',         desc: '누군가 나를 팔로우하면 알립니다',     on: false },
+    { id: 'marketing', label: '마케팅 이메일',     desc: 'AIVA의 새 기능 및 혜택 소식',        on: false },
+  ])
   const toggleNotification = (id: string) =>
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, on: !n.on } : n))
 
-  const handleSave = () => { setSaved(true); setTimeout(() => setSaved(false), 2000) }
+  // ── 비밀번호 변경 ────────────────────────────────────────
+  const [currentPw, setCurrentPw] = useState('')
+  const [newPw, setNewPw]         = useState('')
+  const [confirmPw, setConfirmPw] = useState('')
+  const [pwLoading, setPwLoading] = useState(false)
+  const [pwMsg, setPwMsg]         = useState('')
+  const [pwError, setPwError]     = useState('')
+
+  const handleChangePassword = async () => {
+    setPwError('')
+    setPwMsg('')
+    if (newPw !== confirmPw) { setPwError('새 비밀번호가 일치하지 않습니다.'); return }
+    if (newPw.length < 8)   { setPwError('비밀번호는 8자 이상이어야 합니다.'); return }
+    setPwLoading(true)
+    try {
+      await changePassword({ currentPassword: currentPw, newPassword: newPw })
+      setPwMsg('비밀번호가 변경되었습니다.')
+      setCurrentPw(''); setNewPw(''); setConfirmPw('')
+      setTimeout(() => setPwMsg(''), 3000)
+    } catch (e) {
+      setPwError(e instanceof Error ? e.message : '비밀번호 변경 실패')
+    } finally {
+      setPwLoading(false)
+    }
+  }
+
+  const planLabel = user?.plan === 'pro' ? 'Pro 플랜' : user?.plan === 'enterprise' ? 'Enterprise' : 'Free 플랜'
+  const credits   = user?.credits ?? 0
+  const initial   = (user?.name ?? 'U')[0].toUpperCase()
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* 프로필 헤더 */}
+      {/* ── 프로필 헤더 ───────────────────────────────────── */}
       <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6 flex items-center gap-5">
         <div className="relative">
-          <div className="w-16 h-16 rounded-2xl bg-linear-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white text-2xl font-black shadow-lg shadow-indigo-900/50">J</div>
+          <div className="w-16 h-16 rounded-2xl bg-linear-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white text-2xl font-black shadow-lg shadow-indigo-900/50">
+            {initial}
+          </div>
           <button className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow-md hover:bg-indigo-700 transition-colors">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
         </div>
         <div>
-          <div className="font-bold text-white text-lg">{name}</div>
-          <div className="text-sm text-slate-400">{email}</div>
-          <Badge variant="info" className="mt-1">Free 플랜</Badge>
+          <div className="font-bold text-white text-lg">{user?.name ?? '불러오는 중...'}</div>
+          <div className="text-sm text-slate-400">{user?.email ?? ''}</div>
+          <Badge variant="info" className="mt-1">{planLabel}</Badge>
         </div>
         <div className="ml-auto text-right">
-          <div className="text-2xl font-black text-white">76</div>
+          <div className="text-2xl font-black text-white">{credits}</div>
           <div className="text-xs text-slate-400">남은 크레딧</div>
         </div>
       </div>
 
-      {/* 탭 */}
+      {/* ── 탭 ───────────────────────────────────────────── */}
       <div className="flex gap-1 bg-[#0d1340] border border-(--border-color) rounded-xl p-1">
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
@@ -61,29 +117,40 @@ const Profile: React.FC = () => {
         ))}
       </div>
 
-      {/* 계정 정보 탭 */}
+      {/* ── 계정 정보 탭 ─────────────────────────────────── */}
       {tab === 'account' && (
         <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6 space-y-5">
           <h2 className="font-bold text-white">계정 정보</h2>
-          {[
-            { label: '이름', val: name, set: setName, type: 'text', editable: true },
-            { label: '이메일', val: email, set: () => {}, type: 'email', editable: false },
-            { label: '사용 용도', val: '개인 창작, 콘텐츠 제작', set: () => {}, type: 'text', editable: false },
-          ].map(f => (
-            <div key={f.label}>
-              <label className="block text-xs font-bold text-slate-300 mb-1.5">{f.label}</label>
-              <input type={f.type} value={f.val} onChange={e => f.editable && f.set(e.target.value)} readOnly={!f.editable}
-                className={`w-full rounded-[12px] px-4 py-2.5 text-sm text-white border focus:outline-none transition-colors ${f.editable ? 'bg-[#080c2a] border-(--border-color) focus:border-indigo-500' : 'bg-navy-900/50 border-transparent text-slate-400 cursor-default'}`}
-              />
-            </div>
-          ))}
-          <Button variant="primary" size="sm" loading={false} onClick={handleSave}>
-            {saved ? '✓ 저장됨' : '변경사항 저장'}
+          <div>
+            <label className="block text-xs font-bold text-slate-300 mb-1.5">이름</label>
+            <input type="text" value={name} onChange={e => setName(e.target.value)}
+              className="w-full bg-[#080c2a] border border-(--border-color) rounded-[12px] px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-300 mb-1.5">이메일</label>
+            <input type="email" value={user?.email ?? ''} readOnly
+              className="w-full bg-navy-900/50 border-transparent rounded-[12px] px-4 py-2.5 text-sm text-slate-400 cursor-default"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-300 mb-1.5">플랜</label>
+            <input type="text" value={planLabel} readOnly
+              className="w-full bg-navy-900/50 border-transparent rounded-[12px] px-4 py-2.5 text-sm text-slate-400 cursor-default"
+            />
+          </div>
+          {saveMsg && (
+            <p className={`text-sm font-semibold ${saveMsg.startsWith('저') ? 'text-emerald-400' : 'text-red-400'}`}>
+              {saveMsg}
+            </p>
+          )}
+          <Button variant="primary" size="sm" loading={saving} onClick={handleSave}>
+            변경사항 저장
           </Button>
         </div>
       )}
 
-      {/* 알림 설정 탭 */}
+      {/* ── 알림 설정 탭 ─────────────────────────────────── */}
       {tab === 'notification' && (
         <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6 space-y-4">
           <h2 className="font-bold text-white">알림 설정</h2>
@@ -99,20 +166,29 @@ const Profile: React.FC = () => {
         </div>
       )}
 
-      {/* 보안 탭 */}
+      {/* ── 보안 탭 ──────────────────────────────────────── */}
       {tab === 'security' && (
         <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6 space-y-5">
           <h2 className="font-bold text-white">보안 설정</h2>
           <div className="space-y-3">
-            {['현재 비밀번호','새 비밀번호','새 비밀번호 확인'].map(l => (
-              <div key={l}>
-                <label className="block text-xs font-bold text-slate-300 mb-1.5">{l}</label>
-                <input type="password" placeholder="••••••••"
+            {[
+              { label: '현재 비밀번호', val: currentPw, set: setCurrentPw },
+              { label: '새 비밀번호',   val: newPw,    set: setNewPw      },
+              { label: '새 비밀번호 확인', val: confirmPw, set: setConfirmPw },
+            ].map(f => (
+              <div key={f.label}>
+                <label className="block text-xs font-bold text-slate-300 mb-1.5">{f.label}</label>
+                <input type="password" value={f.val} onChange={e => f.set(e.target.value)}
+                  placeholder="••••••••"
                   className="w-full bg-[#080c2a] border border-(--border-color) rounded-[12px] px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
                 />
               </div>
             ))}
-            <Button variant="primary" size="sm">비밀번호 변경</Button>
+            {pwError && <p className="text-sm text-red-400">{pwError}</p>}
+            {pwMsg   && <p className="text-sm text-emerald-400">{pwMsg}</p>}
+            <Button variant="primary" size="sm" loading={pwLoading} onClick={handleChangePassword}>
+              비밀번호 변경
+            </Button>
           </div>
           <div className="pt-4 border-t border-(--border-color)">
             <h3 className="text-sm font-bold text-white mb-3">2단계 인증 (2FA)</h3>
@@ -124,37 +200,36 @@ const Profile: React.FC = () => {
         </div>
       )}
 
-      {/* 구독 탭 */}
+      {/* ── 구독 탭 ──────────────────────────────────────── */}
       {tab === 'subscription' && (
         <div className="space-y-4">
           <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6 space-y-4">
             <h2 className="font-bold text-white">현재 구독</h2>
             <div className="flex items-center justify-between p-4 rounded-xl bg-[#080c2a] border border-(--border-color)">
               <div>
-                <div className="font-bold text-white">Free 플랜</div>
-                <div className="text-xs text-slate-400 mt-0.5">월 100 크레딧 · 무료</div>
+                <div className="font-bold text-white">{planLabel}</div>
+                <div className="text-xs text-slate-400 mt-0.5">
+                  {user?.plan === 'free' ? '월 100 크레딧 · 무료' : user?.plan === 'pro' ? '월 1,000 크레딧 · ₩12,000' : 'Enterprise 플랜'}
+                </div>
               </div>
               <Badge variant="success">활성</Badge>
             </div>
-            <Button variant="primary" size="sm" fullWidth>Pro로 업그레이드</Button>
+            {user?.plan === 'free' && (
+              <Button variant="primary" size="sm" fullWidth>Pro로 업그레이드</Button>
+            )}
           </div>
           <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6">
-            <h3 className="font-bold text-white mb-4">크레딧 이용 내역</h3>
-            {[
-              { date: '2026-05-20', desc: 'Rainy Tokyo Night 생성', amount: -4 },
-              { date: '2026-05-19', desc: 'Midnight Seoul 생성', amount: -4 },
-              { date: '2026-05-01', desc: '월간 크레딧 충전', amount: +100 },
-            ].map((h, i) => (
-              <div key={i} className="flex items-center justify-between py-2 border-b border-(--border-color) last:border-0 text-sm">
-                <div>
-                  <div className="text-slate-300">{h.desc}</div>
-                  <div className="text-xs text-slate-500">{h.date}</div>
-                </div>
-                <span className={`font-bold ${h.amount > 0 ? 'text-emerald-400' : 'text-slate-400'}`}>
-                  {h.amount > 0 ? '+' : ''}{h.amount}
-                </span>
-              </div>
-            ))}
+            <h3 className="font-bold text-white mb-4">크레딧 현황</h3>
+            <div className="flex justify-between text-sm mb-2">
+              <span className="text-slate-400">남은 크레딧</span>
+              <span className="font-bold text-white">{credits} / 100</span>
+            </div>
+            <div className="h-2 bg-navy-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-indigo-600 to-violet-600 rounded-full transition-all"
+                style={{ width: `${Math.min(credits, 100)}%` }}
+              />
+            </div>
           </div>
         </div>
       )}

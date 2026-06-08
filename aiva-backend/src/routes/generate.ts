@@ -61,8 +61,8 @@ router.post('/', generateLimiter, async (req, res, next) => {
       const trackId = uuidv4()
       const trackTitle = body.title || body.prompt.slice(0, 50)
       await conn.query(
-        `INSERT INTO tracks (id, user_id, title, prompt, genre, mood, bpm, duration, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+        `INSERT INTO tracks (id, user_id, title, prompt, genre, mood, bpm, duration, status, is_public)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 1)`,
         [trackId, req.user!.id, trackTitle, body.prompt,
          body.genre ?? null, body.mood ?? null, body.bpm ?? null, body.duration]
       )
@@ -355,9 +355,4 @@ router.delete('/:trackId', async (req, res, next) => {
         )
         await conn.query("UPDATE tracks SET status = 'error' WHERE id = ?", [track.id])
       }
-      res.json({ success: true, message: '생성이 취소되었습니다.' })
-    } finally { conn.release() }
-  } catch (err) { next(err) }
-})
-
-export default router
+      res.json({ success: true, message: '생성이 

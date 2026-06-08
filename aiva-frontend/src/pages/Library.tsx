@@ -9,7 +9,7 @@ import { getTracks } from '../api/tracks'
 import { formatDuration, formatPlays, formatDate, gradColor } from '../utils/format'
 import type { Track, PaginatedResponse } from '../types'
 
-const FILTERS = ['전체', 'Lo-Fi', 'City Pop', 'Ambient', 'Synthwave', 'Acoustic', 'Generating']
+const FILTERS = ['전체', 'Lo-Fi', 'City Pop', 'Ambient', 'Synthwave', 'K-Pop', 'EDM', 'Jazz', 'Acoustic', 'Hip-Hop', 'Classical', 'R&B', 'Drum & Bass']
 type ViewMode = 'grid' | 'list'
 
 // ── 스켈레톤 ─────────────────────────────────────────────

@@ -37,14 +37,14 @@ async function getOwnedTrack(trackId: string, userId: string) {
 }
 
 // ── 헬퍼: suno_jobs 저장 ────────────────────────────────────
-async function saveJob(type: string, trackId: string, sunoTaskId: string, extra = '{}') {
+async function saveJob(type: string, trackId: string | null, sunoTaskId: string, extra = '{}') {
   const conn = await pool.getConnection()
   try {
     const jobId = uuidv4()
     await conn.query(
       `INSERT INTO suno_jobs (id, track_id, type, suno_task_id, status, extra)
        VALUES (?, ?, ?, ?, 'pending', ?)`,
-      [jobId, trackId, type, sunoTaskId, extra]
+      [jobId, trackId ?? null, type, sunoTaskId, extra]
     )
     return jobId
   } finally { conn.release() }
@@ -55,9 +55,11 @@ async function getJob(jobId: string, userId: string) {
   const conn = await pool.getConnection()
   try {
     const [rows] = await conn.query(
+      // LEFT JOIN: lyrics처럼 track_id가 NULL인 경우도 조회 가능
+      // track 기반 작업은 소유권 확인, lyrics는 jobId(UUID) 자체가 접근 키
       `SELECT sj.* FROM suno_jobs sj
-       JOIN tracks t ON t.id = sj.track_id
-       WHERE sj.id = ? AND t.user_id = ?`,
+       LEFT JOIN tracks t ON t.id = sj.track_id
+       WHERE sj.id = ? AND (t.user_id = ? OR sj.track_id IS NULL)`,
       [jobId, userId]
     )
     return (rows as Record<string, unknown>[])[0] ?? null
@@ -155,7 +157,7 @@ router.post('/lyrics', async (req, res, next) => {
     )
 
     const sunoTaskId: string = sunoRes.data?.data?.taskId
-    const jobId = await saveJob('lyrics', 'none', sunoTaskId, JSON.stringify({ prompt }))
+    const jobId = await saveJob('lyrics', null, sunoTaskId, JSON.stringify({ prompt }))
     res.json({ success: true, data: { jobId, sunoTaskId } })
   } catch (err) { next(err) }
 })

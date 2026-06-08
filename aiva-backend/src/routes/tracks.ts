@@ -42,7 +42,7 @@ router.get('/', async (req, res, next) => {
                 t.duration
               ) AS duration,
               t.status, t.suno_task_id, t.audio_url, t.cover_url,
-              t.is_public, t.play_count, t.like_count, t.created_at, t.updated_at
+              t.is_public, t.play_count AS plays, t.like_count AS likes, t.created_at, t.updated_at
        FROM tracks t ${where}
        ORDER BY t.${safeSort} ${safeOrder} LIMIT ? OFFSET ?`,
       [...params, Number(limit), offset]

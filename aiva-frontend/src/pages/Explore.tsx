@@ -18,7 +18,7 @@ interface Creator {
   is_following: number  // 0 | 1 (MySQL CASE 반환)
 }
 
-const GENRES = ['전체','Lo-Fi','City Pop','Ambient','Synthwave','K-Pop','EDM','Acoustic','Hip-Hop']
+const GENRES = ['전체','Lo-Fi','City Pop','Ambient','Synthwave','K-Pop','EDM','Jazz','Acoustic','Hip-Hop','Classical','R&B','Drum & Bass']
 
 // ── 스켈레톤 ─────────────────────────────────────────────
 const TrackSkeleton = () => (

@@ -5,6 +5,7 @@ import { Badge } from '../components/common/Badge'
 import { useApi } from '../hooks/useApi'
 import { getTrending, getRecent, getCreators, searchExplore } from '../api/explore'
 import { followUser, unfollowUser } from '../api/users'
+import { likeTrack, unlikeTrack } from '../api/tracks'
 import { formatPlays, formatDuration, gradColor } from '../utils/format'
 import type { Track, PaginatedResponse } from '../types'
 
@@ -90,6 +91,23 @@ const Explore: React.FC = () => {
   const searched  = searchData?.items   ?? []
   const creators  = useMemo(() => creatorsData?.items ?? [], [creatorsData])
 
+  // ── 좋아요 상태 (낙관적 업데이트) ────────────────────────
+  const [likeOverrides, setLikeOverrides] = useState<Record<string, boolean>>({})
+
+  const handleLike = async (e: React.MouseEvent, track: Track & { is_liked?: number }) => {
+    e.stopPropagation()
+    const currentLiked = likeOverrides[track.id] ?? !!track.is_liked
+    // 낙관적 업데이트
+    setLikeOverrides(prev => ({ ...prev, [track.id]: !currentLiked }))
+    try {
+      if (currentLiked) await unlikeTrack(track.id)
+      else              await likeTrack(track.id)
+    } catch {
+      // 실패 시 롤백
+      setLikeOverrides(prev => ({ ...prev, [track.id]: currentLiked }))
+    }
+  }
+
   // ── 팔로우 상태 (낙관적 업데이트: 변경분만 별도 추적) ──
   type FollowOverride = Pick<Creator, 'is_following' | 'followers'>
   const [overrides, setOverrides] = useState<Record<string, FollowOverride>>({})
@@ -173,7 +191,7 @@ const Explore: React.FC = () => {
               ? <p className="text-sm text-slate-400 text-center py-6">검색 결과가 없습니다.</p>
               : <div className="flex flex-col gap-3">
                   {searched.map((t, i) => (
-                    <TrackRow key={t.id} track={t} rank={i + 1} onPlay={() => navigate(`/player/${t.id}`)} />
+                    <TrackRow key={t.id} track={t} rank={i + 1} onPlay={() => navigate(`/player/${t.id}`)} isLiked={likeOverrides[t.id] ?? !!(t as Track & { is_liked?: number }).is_liked} onLike={handleLike} />
                   ))}
                 </div>
           }
@@ -190,7 +208,7 @@ const Explore: React.FC = () => {
               ? <p className="text-sm text-slate-400 text-center py-6">트렌딩 트랙이 없습니다.</p>
               : <div className="flex flex-col gap-3">
                   {trending.map((t, i) => (
-                    <TrackRow key={t.id} track={t} rank={i + 1} onPlay={() => navigate(`/player/${t.id}`)} />
+                    <TrackRow key={t.id} track={t} rank={i + 1} onPlay={() => navigate(`/player/${t.id}`)} isLiked={likeOverrides[t.id] ?? !!(t as Track & { is_liked?: number }).is_liked} onLike={handleLike} />
                   ))}
                 </div>
           }
@@ -278,11 +296,13 @@ const Explore: React.FC = () => {
 
 // ── 트랙 행 컴포넌트 (Trending + Search에서 공용) ─────────
 interface TrackRowProps {
-  track:  Track
-  rank:   number
-  onPlay: () => void
+  track:   Track
+  rank:    number
+  onPlay:  () => void
+  isLiked?: boolean
+  onLike?: (e: React.MouseEvent, track: Track & { is_liked?: number }) => void
 }
-const TrackRow: React.FC<TrackRowProps> = ({ track, rank, onPlay }) => (
+const TrackRow: React.FC<TrackRowProps> = ({ track, rank, onPlay, isLiked = false, onLike }) => (
   <div
     className="flex items-center gap-4 p-3 rounded-xl hover:bg-navy-800/40 transition-colors cursor-pointer group"
     onClick={onPlay}
@@ -293,13 +313,16 @@ const TrackRow: React.FC<TrackRowProps> = ({ track, rank, onPlay }) => (
     </div>
     <div className="flex-1 min-w-0">
       <div className="text-sm font-semibold text-white truncate">{track.title}</div>
-      <div className="text-xs text-slate-400">{track.mood}</div>
+      <div className="text-xs text-slate-400">{(track as Track & { mood?: string }).mood}</div>
     </div>
     <Badge variant="info">{track.genre}</Badge>
     <span className="text-xs text-slate-500">▶ {formatPlays(track.plays)}</span>
     <span className="text-xs text-slate-500 hidden sm:block">{formatDuration(track.duration)}</span>
-    <button className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-indigo-400 transition-all">
-      <Heart size={14} />
+    <button
+      className={`transition-all ${isLiked ? 'opacity-100 text-rose-400' : 'opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-400'}`}
+      onClick={e => onLike?.(e, track as Track & { is_liked?: number })}
+    >
+      <Heart size={14} fill={isLiked ? 'currentColor' : 'none'} />
     </button>
   </div>
 )

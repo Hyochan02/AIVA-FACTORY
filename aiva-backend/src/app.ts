@@ -7,6 +7,8 @@ import cors from 'cors'
 import helmet from 'helmet'
 import morgan from 'morgan'
 import rateLimit from 'express-rate-limit'
+import swaggerUi from 'swagger-ui-express'
+import swaggerSpec from './docs/swagger'
 
 import authRouter         from './routes/auth'
 import tracksRouter       from './routes/tracks'
@@ -60,6 +62,18 @@ if (process.env.NODE_ENV !== 'test') app.use(morgan('dev'))
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString(), env: process.env.NODE_ENV })
 })
+
+// ── Swagger API 문서 ──────────────────────────────────────────
+// https://api.aiva-factory.p-e.kr/api-docs
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customSiteTitle: 'AIVA FACTORY API Docs',
+  customCss: `
+    .swagger-ui .topbar { background: #080c2a; }
+    .swagger-ui .topbar-wrapper .link span { display: none; }
+    .swagger-ui .topbar-wrapper::after { content: 'AIVA FACTORY API'; color: #818cf8; font-weight: 900; font-size: 1.1rem; }
+  `,
+  swaggerOptions: { persistAuthorization: true },  // 페이지 새로고침 후에도 토큰 유지
+}))
 
 // ── API 라우트 ────────────────────────────────────────────────
 app.use('/api/auth',          authRouter)

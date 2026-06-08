@@ -42,6 +42,7 @@ const Player: React.FC = () => {
   // 트랙 로드
   useEffect(() => {
     if (!trackId) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     getTrack(trackId).then((res: any) => {
@@ -105,8 +106,10 @@ const Player: React.FC = () => {
   // Version 데이터에 duration이 있으면 audio 로드 전에도 표시
   useEffect(() => {
     const vDuration = currentVersion_?.duration ?? (track?.duration as number | undefined)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (vDuration && vDuration > 0 && !duration) setDuration(vDuration)
-  }, [currentVersion_, track])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentVersion_, track]) // duration 의도적으로 제외: 오디오 이벤트로 갱신된 값을 덮지 않기 위함
 
   const togglePlay = () => {
     const audio = audioRef.current
@@ -135,7 +138,7 @@ const Player: React.FC = () => {
     try {
       if (liked) { await unlikeTrack(trackId); setLiked(false); setLikeCount(p => p - 1) }
       else       { await likeTrack(trackId);   setLiked(true);  setLikeCount(p => p + 1) }
-    } catch {}
+    } catch { /* ignore like/unlike errors */ }
   }
 
   const handleComment = async () => {
@@ -146,7 +149,7 @@ const Player: React.FC = () => {
       const res = await postComment(trackId, commentText.trim()) as any
       setComments(p => [res.data, ...p])
       setCommentText('')
-    } catch {} finally { setCommenting(false) }
+    } catch { /* ignore comment errors */ } finally { setCommenting(false) }
   }
 
   const progress = duration > 0 ? currentTime / duration : 0
@@ -177,9 +180,9 @@ const Player: React.FC = () => {
       <audio ref={audioRef} src={currentAudioUrl} preload="metadata" />
 
       {/* ─ 트랙 정보 + 플레이어 ─ */}
-      <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl overflow-hidden">
+      <div className="bg-[#0d1340] border border-primary-soft rounded-2xl overflow-hidden">
         {/* 커버 영역 */}
-        <div className="relative h-48 bg-gradient-to-br from-indigo-700 to-violet-800 flex items-center justify-center overflow-hidden">
+        <div className="relative h-48 bg-linear-to-br from-indigo-700 to-violet-800 flex items-center justify-center overflow-hidden">
           {currentImageUrl ? (
             <img src={currentImageUrl} alt="cover" className="absolute inset-0 w-full h-full object-cover opacity-70" />
           ) : (
@@ -208,7 +211,7 @@ const Player: React.FC = () => {
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
                   liked
                     ? 'bg-rose-900/30 border-rose-700/40 text-rose-400'
-                    : 'border-[rgba(129,140,248,0.15)] text-slate-400 hover:border-rose-700/40'
+                    : 'border-primary-soft text-slate-400 hover:border-rose-700/40'
                 }`}
               >
                 ♥ {likeCount}
@@ -229,7 +232,7 @@ const Player: React.FC = () => {
                   className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${
                     currentVersion === v.version_num
                       ? 'bg-indigo-600/30 border-indigo-500/60 text-indigo-300'
-                      : 'border-[rgba(129,140,248,0.15)] text-slate-400 hover:border-indigo-700/50'
+                      : 'border-primary-soft text-slate-400 hover:border-indigo-700/50'
                   }`}
                 >
                   v{v.version_num} {v.title ? `· ${v.title.slice(0,20)}` : ''}

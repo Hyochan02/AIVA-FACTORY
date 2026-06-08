@@ -36,11 +36,11 @@ const ResetPassword: React.FC = () => {
     <div className="min-h-screen bg-[#080c2a] flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-8">
         <Link to="/" className="flex items-center justify-center gap-2 font-black text-lg text-white">
-          <span className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white font-black text-sm">A</span>
+          <span className="w-9 h-9 rounded-lg bg-linear-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white font-black text-sm">A</span>
           AIVA FACTORY
         </Link>
 
-        <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-8 space-y-6">
+        <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-8 space-y-6">
           {!done ? (
             <>
               <div className="text-center">
@@ -64,7 +64,7 @@ const ResetPassword: React.FC = () => {
                     placeholder="8자 이상"
                     autoFocus
                     disabled={!token}
-                    className="w-full bg-[#080c2a] border border-[rgba(129,140,248,0.15)] rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors disabled:opacity-50"
+                    className="w-full bg-[#080c2a] border border-primary-soft rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors disabled:opacity-50"
                   />
                 </div>
                 <div>
@@ -75,7 +75,7 @@ const ResetPassword: React.FC = () => {
                     onChange={e => setPw2(e.target.value)}
                     placeholder="비밀번호 재입력"
                     disabled={!token}
-                    className="w-full bg-[#080c2a] border border-[rgba(129,140,248,0.15)] rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors disabled:opacity-50"
+                    className="w-full bg-[#080c2a] border border-primary-soft rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors disabled:opacity-50"
                   />
                 </div>
                 {error && (

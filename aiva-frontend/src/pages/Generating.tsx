@@ -66,9 +66,9 @@ const Generating: React.FC = () => {
         )}
         <div className="absolute inset-3 rounded-full bg-indigo-700/30 animate-pulse" />
         <div className={`relative w-full h-full rounded-full flex items-center justify-center shadow-2xl shadow-indigo-900/60 ${
-          isDone  ? 'bg-gradient-to-br from-green-500 to-emerald-600' :
-          isError ? 'bg-gradient-to-br from-red-700 to-rose-800'     :
-                    'bg-gradient-to-br from-indigo-600 to-violet-600'
+          isDone  ? 'bg-linear-to-br from-green-500 to-emerald-600' :
+          isError ? 'bg-linear-to-br from-red-700 to-rose-800'     :
+                    'bg-linear-to-br from-indigo-600 to-violet-600'
         }`}>
           <span className="flex items-center justify-center">
             {isDone ? <CheckCircle2 size={40} className="text-white" /> : isError ? <XCircle size={40} className="text-white" /> : <Music2 size={40} className="text-white" />}
@@ -118,13 +118,13 @@ const Generating: React.FC = () => {
                 className={`flex items-center gap-4 p-4 rounded-xl border transition-all text-left ${
                   picked?.id === v.id
                     ? 'border-indigo-500 bg-indigo-600/20'
-                    : 'border-[rgba(129,140,248,0.15)] bg-[#0d1340] hover:border-indigo-700/50'
+                    : 'border-primary-soft bg-[#0d1340] hover:border-indigo-700/50'
                 }`}
               >
                 {v.image_url ? (
                   <img src={v.image_url} alt="" className="w-14 h-14 rounded-lg object-cover shrink-0" />
                 ) : (
-                  <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-indigo-700 to-violet-800 shrink-0 flex items-center justify-center text-white"><Music2 size={24} /></div>
+                  <div className="w-14 h-14 rounded-lg bg-linear-to-br from-indigo-700 to-violet-800 shrink-0 flex items-center justify-center text-white"><Music2 size={24} /></div>
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-bold text-white truncate">

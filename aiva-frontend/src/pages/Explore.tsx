@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { Music2, Play, Heart, Flame, Mic, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Badge } from '../components/common/Badge'
@@ -88,35 +88,37 @@ const Explore: React.FC = () => {
   const trending  = trendingData?.items ?? []
   const recent    = recentData?.items   ?? []
   const searched  = searchData?.items   ?? []
-  const creators  = creatorsData?.items ?? []
+  const creators  = useMemo(() => creatorsData?.items ?? [], [creatorsData])
 
-  // ── 팔로우 상태 (API 응답 기반 초기화 + 낙관적 업데이트) ──
-  const [localCreators, setLocalCreators] = useState<Creator[]>([])
+  // ── 팔로우 상태 (낙관적 업데이트: 변경분만 별도 추적) ──
+  type FollowOverride = Pick<Creator, 'is_following' | 'followers'>
+  const [overrides, setOverrides] = useState<Record<string, FollowOverride>>({})
   const [followLoading, setFollowLoading] = useState<string | null>(null)
 
-  // creators 데이터가 로드되면 로컬 상태에 동기화
-  useEffect(() => {
-    if (creators.length > 0) setLocalCreators(creators)
-  }, [creators])
+  // creators + overrides를 합쳐 최종 목록 생성 (useEffect 불필요)
+  const localCreators = useMemo(
+    () => creators.map(c => overrides[c.id] ? { ...c, ...overrides[c.id] } : c),
+    [creators, overrides]
+  )
 
   const handleFollow = async (creatorId: string) => {
     if (followLoading) return
 
-    // API 호출 전 현재 상태 스냅샷 (클로저 stale 방지)
-    const snapshot = localCreators.find(c => c.id === creatorId)
+    const snapshot = creators.find(c => c.id === creatorId)
     if (!snapshot) return
-    const wasFollowing = !!snapshot.is_following
+    const current = overrides[creatorId] ?? snapshot
+    const wasFollowing = !!current.is_following
 
     setFollowLoading(creatorId)
 
     // 낙관적 업데이트: 즉시 UI 반영
-    setLocalCreators(prev => prev.map(c =>
-      c.id !== creatorId ? c : {
-        ...c,
+    setOverrides(prev => ({
+      ...prev,
+      [creatorId]: {
         is_following: wasFollowing ? 0 : 1,
-        followers:    c.followers + (wasFollowing ? -1 : 1),
-      }
-    ))
+        followers:    current.followers + (wasFollowing ? -1 : 1),
+      },
+    }))
 
     try {
       if (wasFollowing) {
@@ -125,14 +127,14 @@ const Explore: React.FC = () => {
         await followUser(creatorId)
       }
     } catch {
-      // 실패 시 스냅샷으로 롤백
-      setLocalCreators(prev => prev.map(c =>
-        c.id !== creatorId ? c : {
-          ...c,
+      // 실패 시 원래 값으로 롤백
+      setOverrides(prev => ({
+        ...prev,
+        [creatorId]: {
           is_following: wasFollowing ? 1 : 0,
-          followers:    c.followers + (wasFollowing ? 1 : -1),
-        }
-      ))
+          followers:    snapshot.followers,
+        },
+      }))
     } finally {
       setFollowLoading(null)
     }

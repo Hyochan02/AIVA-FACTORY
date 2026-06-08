@@ -64,6 +64,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     const token = localStorage.getItem('aiva_token')
     if (token) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       refreshUser().finally(() => setLoading(false))
     } else {
       setLoading(false)
@@ -97,6 +98,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 }
 
 // ── useAuth 훅 ────────────────────────────────────────────
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = (): AuthContextValue => {
   const ctx = useContext(AuthContext)
   if (!ctx) throw new Error('useAuth는 <AuthProvider> 안에서만 사용할 수 있습니다.')

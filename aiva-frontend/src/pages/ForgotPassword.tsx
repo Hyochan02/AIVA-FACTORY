@@ -17,7 +17,6 @@ const ForgotPassword: React.FC = () => {
     setLoading(true)
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const res = await forgotPassword(email) as any
       setSent(true)
       if (res.data?._devToken) setDevToken(res.data._devToken)
@@ -34,13 +33,13 @@ const ForgotPassword: React.FC = () => {
       <div className="w-full max-w-md space-y-8">
         {/* 로고 */}
         <Link to="/" className="flex items-center justify-center gap-2 font-black text-lg text-white">
-          <span className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white font-black text-sm shadow-lg shadow-indigo-900/50">
+          <span className="w-9 h-9 rounded-lg bg-linear-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white font-black text-sm shadow-lg shadow-indigo-900/50">
             A
           </span>
           AIVA FACTORY
         </Link>
 
-        <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-8 space-y-6">
+        <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-8 space-y-6">
           {!sent ? (
             <>
               <div className="text-center">
@@ -59,7 +58,7 @@ const ForgotPassword: React.FC = () => {
                     onChange={e => setEmail(e.target.value)}
                     placeholder="you@example.com"
                     autoFocus
-                    className="w-full bg-[#080c2a] border border-[rgba(129,140,248,0.15)] rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
+                    className="w-full bg-[#080c2a] border border-primary-soft rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
                   />
                 </div>
 

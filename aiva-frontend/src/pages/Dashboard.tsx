@@ -161,7 +161,7 @@ const Dashboard: React.FC = () => {
             </div>
             <div className="h-2 bg-navy-800 rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-indigo-600 to-violet-600 rounded-full transition-all duration-500"
+                className="h-full bg-linear-to-r from-indigo-600 to-violet-600 rounded-full transition-all duration-500"
                 style={{ width: `${Math.min(credits, 100)}%` }}
               />
             </div>

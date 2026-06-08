@@ -39,6 +39,7 @@ const Profile: React.FC = () => {
   const [saveMsg, setSaveMsg] = useState('')
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (user?.name) setName(user.name)
   }, [user?.name])
 
@@ -73,6 +74,7 @@ const Profile: React.FC = () => {
   }, [])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (tab === 'notification') loadNotifications()
   }, [tab, loadNotifications])
 
@@ -143,6 +145,7 @@ const Profile: React.FC = () => {
   }, [])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (tab === 'subscription') loadSubscription()
   }, [tab, loadSubscription])
 
@@ -312,7 +315,7 @@ const Profile: React.FC = () => {
             {monthlyGrant !== -1 && (
               <div className="h-2 bg-navy-800 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-indigo-600 to-violet-600 rounded-full transition-all"
+                  className="h-full bg-linear-to-r from-indigo-600 to-violet-600 rounded-full transition-all"
                   style={{ width: `${Math.min((creditBalance / monthlyGrant) * 100, 100)}%` }}
                 />
               </div>

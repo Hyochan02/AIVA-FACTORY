@@ -49,7 +49,7 @@ const Pricing: React.FC = () => {
 
   const handleSelect = (planId: string) => {
     if (planId === 'free' || planId === currentPlan) return
-    if (planId === 'enterprise') { window.location.href = 'mailto:hello@aiva-factory.com'; return }
+    if (planId === 'enterprise') { window.open('mailto:hello@aiva-factory.com'); return }
     if (!user) { navigate('/login'); return }
     setSelectedPlan(planId)
     setSubError('')

@@ -50,7 +50,7 @@ export function useApi<T>(
       const msg = e instanceof Error ? e.message : '오류가 발생했습니다.'
       setState({ data: null, loading: false, error: msg })
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/use-memo
   }, deps)
 
   useEffect(() => {

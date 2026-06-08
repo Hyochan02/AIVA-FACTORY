@@ -42,7 +42,7 @@ function usePoller<T>(
           if (intervalRef.current) clearInterval(intervalRef.current)
           onDone(data as T)
         }
-      } catch {}
+      } catch { /* ignore polling errors */ }
     }
     check()
     intervalRef.current = setInterval(check, 3000)
@@ -185,7 +185,7 @@ const Editor: React.FC = () => {
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap border transition-all shrink-0 ${
               activeTab === t.id
                 ? 'bg-indigo-600/20 border-indigo-500/60 text-indigo-300'
-                : 'border-[rgba(129,140,248,0.15)] text-slate-400 hover:border-indigo-700/50'
+                : 'border-primary-soft text-slate-400 hover:border-indigo-700/50'
             }`}
           >
             <span>{t.icon}</span>
@@ -199,7 +199,7 @@ const Editor: React.FC = () => {
         {/* ─ 왼쪽: 설정 패널 ─ */}
         <div className="lg:col-span-2 space-y-5">
           {/* 설명 카드 */}
-          <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-5">
+          <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-5">
             <div className="flex items-center gap-3 mb-1">
               <span className="text-indigo-300">{tabInfo.icon}</span>
               <div>
@@ -211,7 +211,7 @@ const Editor: React.FC = () => {
 
           {/* 트랙 선택 (lyrics 제외) */}
           {activeTab !== 'lyrics' && (
-            <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-5">
+            <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-5">
               <label className="block text-sm font-bold text-white mb-3">대상 트랙 선택</label>
               {tracks.length === 0 ? (
                 <p className="text-slate-500 text-sm">완료된 트랙이 없습니다. 먼저 음악을 생성해주세요.</p>
@@ -219,7 +219,7 @@ const Editor: React.FC = () => {
                 <select
                   value={selectedTrackId}
                   onChange={e => setSelectedTrackId(e.target.value)}
-                  className="w-full bg-[#080c2a] border border-[rgba(129,140,248,0.15)] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                  className="w-full bg-[#080c2a] border border-primary-soft rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
                 >
                   {tracks.map(t => (
                     <option key={t.id} value={t.id}>{t.title} {t.genre ? `(${t.genre})` : ''}</option>
@@ -233,7 +233,7 @@ const Editor: React.FC = () => {
 
           {/* Extend */}
           {activeTab === 'extend' && (
-            <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-5 space-y-4">
+            <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-5 space-y-4">
               <div>
                 <label className="block text-sm font-bold text-white mb-2">
                   연장 시작 위치 (초)
@@ -241,7 +241,7 @@ const Editor: React.FC = () => {
                 <input
                   type="number" min={0} max={300} value={continueAt}
                   onChange={e => setContinueAt(Number(e.target.value))}
-                  className="w-32 bg-[#080c2a] border border-[rgba(129,140,248,0.15)] rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                  className="w-32 bg-[#080c2a] border border-primary-soft rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
                 />
                 <p className="text-xs text-slate-500 mt-1">기존 트랙의 이 위치부터 이어서 생성합니다</p>
               </div>
@@ -252,7 +252,7 @@ const Editor: React.FC = () => {
                   onChange={e => setExtendPrompt(e.target.value)}
                   placeholder="예: 더 신나게, 기타 솔로 추가..."
                   rows={3}
-                  className="w-full bg-[#080c2a] border border-[rgba(129,140,248,0.15)] rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 resize-none"
+                  className="w-full bg-[#080c2a] border border-primary-soft rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 resize-none"
                 />
               </div>
               <div>
@@ -261,7 +261,7 @@ const Editor: React.FC = () => {
                   value={extendStyle}
                   onChange={e => setExtendStyle(e.target.value)}
                   placeholder="예: jazz, upbeat, electronic..."
-                  className="w-full bg-[#080c2a] border border-[rgba(129,140,248,0.15)] rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-[#080c2a] border border-primary-soft rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
                 />
               </div>
             </div>
@@ -269,7 +269,7 @@ const Editor: React.FC = () => {
 
           {/* Lyrics */}
           {activeTab === 'lyrics' && (
-            <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-5">
+            <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-5">
               <label className="block text-sm font-bold text-white mb-2">
                 가사 주제 / 컨셉 <span className="text-indigo-400">*</span>
               </label>
@@ -278,21 +278,21 @@ const Editor: React.FC = () => {
                 onChange={e => setLyricsPrompt(e.target.value)}
                 placeholder="예: 비 오는 서울 밤, 이별의 감성, 재즈 발라드 스타일..."
                 rows={4}
-                className="w-full bg-[#080c2a] border border-[rgba(129,140,248,0.15)] rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 resize-none"
+                className="w-full bg-[#080c2a] border border-primary-soft rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 resize-none"
               />
             </div>
           )}
 
           {/* Separate */}
           {activeTab === 'separate' && (
-            <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-5 space-y-3">
+            <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-5 space-y-3">
               <label className="block text-sm font-bold text-white mb-2">분리 모드</label>
               {([
                 { value: 'separate_vocal', label: '보컬 + 반주 분리', credit: '10크레딧', desc: '2개 파일 반환: 보컬, 반주' },
                 { value: 'split_stem',     label: '전체 악기 분리',   credit: '50크레딧', desc: '최대 12개 파일: 보컬, 드럼, 베이스, 기타, 키보드 등' },
               ] as const).map(opt => (
                 <button key={opt.value} type="button" onClick={() => setSeparateType(opt.value)}
-                  className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${separateType === opt.value ? 'border-indigo-500/60 bg-indigo-600/10' : 'border-[rgba(129,140,248,0.15)] hover:border-indigo-700/40'}`}>
+                  className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${separateType === opt.value ? 'border-indigo-500/60 bg-indigo-600/10' : 'border-primary-soft hover:border-indigo-700/40'}`}>
                   <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${separateType === opt.value ? 'border-indigo-400' : 'border-slate-600'}`}>
                     {separateType === opt.value && <div className="w-2 h-2 rounded-full bg-indigo-400" />}
                   </div>
@@ -307,7 +307,7 @@ const Editor: React.FC = () => {
 
           {/* WAV */}
           {activeTab === 'wav' && (
-            <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-5">
+            <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-5">
               <label className="block text-sm font-bold text-white mb-3">변환할 버전</label>
               <div className="flex gap-3">
                 {[1, 2].map(v => (
@@ -317,7 +317,7 @@ const Editor: React.FC = () => {
                     className={`px-4 py-2 rounded-xl border text-sm font-bold transition-all ${
                       wavVersion === v
                         ? 'bg-indigo-600/20 border-indigo-500/60 text-indigo-300'
-                        : 'border-[rgba(129,140,248,0.15)] text-slate-400'
+                        : 'border-primary-soft text-slate-400'
                     }`}
                   >버전 {v}</button>
                 ))}
@@ -328,7 +328,7 @@ const Editor: React.FC = () => {
 
           {/* Video - 추가 설정 없음 */}
           {activeTab === 'video' && (
-            <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-5">
+            <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-5">
               <p className="text-sm text-slate-400">선택한 트랙으로 비주얼 이펙트가 포함된 MP4 뮤직비디오를 생성합니다.</p>
               <p className="text-xs text-slate-500 mt-2">생성된 비디오는 15일간 보관됩니다.</p>
             </div>
@@ -361,7 +361,7 @@ const Editor: React.FC = () => {
 
         {/* ─ 오른쪽: 결과 패널 ─ */}
         <div className="space-y-5">
-          <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-5">
+          <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-5">
             <h3 className="text-sm font-bold text-white mb-4">결과</h3>
 
             {/* Extend 결과 */}

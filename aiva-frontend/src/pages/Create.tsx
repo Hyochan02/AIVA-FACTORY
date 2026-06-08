@@ -34,7 +34,6 @@ const Create: React.FC = () => {
     setLoading(true)
     try {
       const durationSec = duration === '커스텀' ? customDuration : (DURATION_MAP[duration] ?? 120)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const res = await startGenerate({
         prompt,
         genre:        selectedGenres[0],
@@ -44,11 +43,11 @@ const Create: React.FC = () => {
         duration:     durationSec,
         instrumental,
         title:        title.trim() || undefined,
-      }) as any
+      }) as { data: { trackId: string } }
       const { trackId } = res.data
       navigate(`/generating?trackId=${trackId}`)
-    } catch (err: any) {
-      const msg = err?.response?.data?.error ?? '생성 요청에 실패했습니다.'
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '생성 요청에 실패했습니다.'
       setError(msg)
       setLoading(false)
     }
@@ -58,7 +57,7 @@ const Create: React.FC = () => {
     <div className="max-w-5xl mx-auto space-y-6">
 
       {/* 제목 (선택) */}
-      <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-6">
+      <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-6">
         <label className="block text-sm font-bold text-white mb-3">
           트랙 제목 <span className="text-slate-500 font-normal">(선택)</span>
         </label>
@@ -67,12 +66,12 @@ const Create: React.FC = () => {
           onChange={e => setTitle(e.target.value)}
           placeholder="예: Rainy Tokyo Night"
           maxLength={80}
-          className="w-full bg-[#080c2a] border border-[rgba(129,140,248,0.15)] rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
+          className="w-full bg-[#080c2a] border border-primary-soft rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
         />
       </div>
 
       {/* 프롬프트 */}
-      <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-6">
+      <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-6">
         <label className="block text-sm font-bold text-white mb-3">
           어떤 음악을 만들고 싶으세요? <span className="text-indigo-400">*</span>
         </label>
@@ -82,7 +81,7 @@ const Create: React.FC = () => {
           placeholder='"비 오는 도쿄 밤, 시티팝 분위기의 잔잔한 LoFi 트랙. 색소폰 솔로와 부드러운 신스 패드"'
           rows={4}
           maxLength={500}
-          className="w-full bg-[#080c2a] border border-[rgba(129,140,248,0.15)] rounded-[12px] px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors resize-none"
+          className="w-full bg-[#080c2a] border border-primary-soft rounded-[12px] px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors resize-none"
         />
         <div className="flex justify-between items-center mt-2">
           <span className="text-xs text-slate-500">{prompt.length} / 500자</span>
@@ -97,7 +96,7 @@ const Create: React.FC = () => {
 
       <div className="grid lg:grid-cols-2 gap-6">
         {/* 장르 */}
-        <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-6">
+        <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-6">
           <h3 className="text-sm font-bold text-white mb-4">장르</h3>
           <div className="flex flex-wrap gap-2">
             {GENRES.map(g => (
@@ -107,7 +106,7 @@ const Create: React.FC = () => {
                 className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-all ${
                   selectedGenres.includes(g)
                     ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-300'
-                    : 'border-[rgba(129,140,248,0.15)] text-slate-400 hover:border-indigo-700/50'
+                    : 'border-primary-soft text-slate-400 hover:border-indigo-700/50'
                 }`}
               >{g}</button>
             ))}
@@ -115,7 +114,7 @@ const Create: React.FC = () => {
         </div>
 
         {/* 분위기 */}
-        <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-6">
+        <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-6">
           <h3 className="text-sm font-bold text-white mb-4">분위기</h3>
           <div className="flex flex-wrap gap-2">
             {MOODS.map(m => (
@@ -125,7 +124,7 @@ const Create: React.FC = () => {
                 className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-all ${
                   selectedMood === m
                     ? 'bg-violet-600/20 border-violet-500/50 text-violet-300'
-                    : 'border-[rgba(129,140,248,0.15)] text-slate-400 hover:border-violet-700/50'
+                    : 'border-primary-soft text-slate-400 hover:border-violet-700/50'
                 }`}
               >{m}</button>
             ))}
@@ -134,7 +133,7 @@ const Create: React.FC = () => {
       </div>
 
       {/* 악기 */}
-      <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-6">
+      <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-6">
         <h3 className="text-sm font-bold text-white mb-4">악기 <span className="text-slate-500 font-normal text-xs">(다중 선택)</span></h3>
         <div className="flex flex-wrap gap-2">
           {INSTRUMENTS.map(i => (
@@ -144,7 +143,7 @@ const Create: React.FC = () => {
               className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-all ${
                 selectedInstruments.includes(i)
                   ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-300'
-                  : 'border-[rgba(129,140,248,0.15)] text-slate-400 hover:border-indigo-700/50'
+                  : 'border-primary-soft text-slate-400 hover:border-indigo-700/50'
               }`}
             >{i}</button>
           ))}
@@ -153,7 +152,7 @@ const Create: React.FC = () => {
 
       <div className="grid lg:grid-cols-2 gap-6">
         {/* BPM */}
-        <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-6">
+        <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-6">
           <h3 className="text-sm font-bold text-white mb-4">BPM <span className="text-indigo-400 ml-2">{bpm}</span></h3>
           <input
             type="range" min={60} max={200} value={bpm}
@@ -166,7 +165,7 @@ const Create: React.FC = () => {
         </div>
 
         {/* 길이 + 반주 전용 */}
-        <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-6 space-y-5">
+        <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-6 space-y-5">
           <div>
             <h3 className="text-sm font-bold text-white mb-3">길이</h3>
             <div className="flex flex-wrap gap-2">
@@ -177,7 +176,7 @@ const Create: React.FC = () => {
                   className={`px-3 py-1.5 text-xs font-semibold rounded-full border transition-all ${
                     duration === d
                       ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-300'
-                      : 'border-[rgba(129,140,248,0.15)] text-slate-400 hover:border-indigo-700/50'
+                      : 'border-primary-soft text-slate-400 hover:border-indigo-700/50'
                   }`}
                 >{d}</button>
               ))}

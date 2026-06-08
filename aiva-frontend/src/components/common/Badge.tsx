@@ -14,7 +14,7 @@ const variantStyles: Record<BadgeVariant, string> = {
   warning: 'bg-yellow-900/30 text-yellow-400 border border-yellow-800/30',
   danger:  'bg-red-900/30 text-red-400 border border-red-800/30',
   info:    'bg-indigo-900/30 text-indigo-300 border border-indigo-800/30',
-  new:     'bg-gradient-to-r from-indigo-600 to-violet-600 text-white',
+  new:     'bg-linear-to-r from-indigo-600 to-violet-600 text-white',
 }
 
 export const Badge: React.FC<BadgeProps> = ({

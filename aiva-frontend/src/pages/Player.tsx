@@ -1,3 +1,4 @@
+import { Music2, SkipBack, Play, Pause, SkipForward } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { Button } from '../components/common/Button'
@@ -156,9 +157,7 @@ const Player: React.FC = () => {
           ) : (
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,rgba(255,255,255,0.08),transparent_50%)]" />
           )}
-          <svg className="relative z-10 opacity-60" width="72" height="72" viewBox="0 0 24 24" fill="white">
-            <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3" fill="white"/><circle cx="18" cy="16" r="3" fill="white"/>
-          </svg>
+          <Music2 size={72} className="relative z-10 opacity-60 text-white" />
         </div>
 
         <div className="p-6 space-y-5">
@@ -250,7 +249,7 @@ const Player: React.FC = () => {
                 onClick={() => { if (audioRef.current) audioRef.current.currentTime = Math.max(0, audioRef.current.currentTime - 5) }}
                 className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-indigo-900/40 transition-all"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+                <SkipBack size={16} fill="currentColor" />
               </button>
               {/* 재생/일시정지 */}
               <button
@@ -259,8 +258,8 @@ const Player: React.FC = () => {
                 aria-label={isPlaying ? '일시정지' : '재생'}
               >
                 {isPlaying
-                  ? <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-                  : <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                  ? <Pause size={18} fill="currentColor" />
+                  : <Play size={18} fill="currentColor" />
                 }
               </button>
               {/* 앞으로 5초 */}
@@ -268,7 +267,7 @@ const Player: React.FC = () => {
                 onClick={() => { if (audioRef.current) audioRef.current.currentTime = Math.min(duration, audioRef.current.currentTime + 5) }}
                 className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-indigo-900/40 transition-all"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                <SkipForward size={16} fill="currentColor" />
               </button>
             </div>
             <div className="flex items-center gap-2">

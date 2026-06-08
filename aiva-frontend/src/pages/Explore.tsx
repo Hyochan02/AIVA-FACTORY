@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { Music2, Play, Heart, Flame, Mic, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Badge } from '../components/common/Badge'
 import { useApi } from '../hooks/useApi'
@@ -110,8 +111,8 @@ const Explore: React.FC = () => {
       {/* ── 검색 결과 ────────────────────────────────────── */}
       {isSearching && (
         <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6">
-          <h2 className="font-bold text-white mb-5">
-            🔍 &quot;{debouncedSearch}&quot; 검색 결과
+          <h2 className="flex items-center gap-2 font-bold text-white mb-5">
+            <Search size={18} className="text-slate-400" /> &quot;{debouncedSearch}&quot; 검색 결과
             {!searchLoading && <span className="text-slate-400 font-normal text-sm ml-2">({searched.length}개)</span>}
           </h2>
           {searchLoading
@@ -130,7 +131,7 @@ const Explore: React.FC = () => {
       {/* ── 트렌딩 ──────────────────────────────────────── */}
       {!isSearching && (
         <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6">
-          <h2 className="font-bold text-white mb-5">🔥 트렌딩</h2>
+          <h2 className="flex items-center gap-2 font-bold text-white mb-5"><Flame size={18} className="text-orange-400" /> 트렌딩</h2>
           {trendingLoading
             ? Array(5).fill(0).map((_, i) => <TrackSkeleton key={i} />)
             : trending.length === 0
@@ -159,10 +160,10 @@ const Explore: React.FC = () => {
                         className="bg-[#0d1340] border border-(--border-color) rounded-2xl overflow-hidden cursor-pointer hover:-translate-y-1 transition-transform group"
                         onClick={() => navigate(`/player/${t.id}`)}>
                         <div className={`h-28 bg-linear-to-br ${gradColor(t.id)} flex items-center justify-center relative`}>
-                          <svg width="36" height="36" viewBox="0 0 24 24" fill="white" opacity="0.6"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3" fill="white"/><circle cx="18" cy="16" r="3" fill="white"/></svg>
+                          <Music2 size={36} className="opacity-60 text-white" />
                           <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                             <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+                              <Play size={16} fill="white" className="text-white" />
                             </div>
                           </div>
                         </div>
@@ -181,7 +182,7 @@ const Explore: React.FC = () => {
 
           {/* ── 인기 크리에이터 ──────────────────────────── */}
           <div className="space-y-4">
-            <h2 className="font-bold text-white">🎤 인기 크리에이터</h2>
+            <h2 className="flex items-center gap-2 font-bold text-white"><Mic size={18} className="text-indigo-300" /> 인기 크리에이터</h2>
             <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-3 flex flex-col gap-1">
               {creators.length === 0 && (
                 <p className="text-sm text-slate-400 text-center py-4">크리에이터 정보를 불러오는 중...</p>
@@ -223,7 +224,7 @@ const TrackRow: React.FC<TrackRowProps> = ({ track, rank, onPlay }) => (
   >
     <span className="w-5 text-sm font-black text-slate-500 text-center">{rank}</span>
     <div className={`w-11 h-11 rounded-xl bg-linear-to-br ${gradColor(track.id)} flex items-center justify-center text-white shrink-0`}>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      <Play size={16} fill="currentColor" />
     </div>
     <div className="flex-1 min-w-0">
       <div className="text-sm font-semibold text-white truncate">{track.title}</div>
@@ -233,9 +234,7 @@ const TrackRow: React.FC<TrackRowProps> = ({ track, rank, onPlay }) => (
     <span className="text-xs text-slate-500">▶ {formatPlays(track.plays)}</span>
     <span className="text-xs text-slate-500 hidden sm:block">{formatDuration(track.duration)}</span>
     <button className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-indigo-400 transition-all">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-      </svg>
+      <Heart size={14} />
     </button>
   </div>
 )

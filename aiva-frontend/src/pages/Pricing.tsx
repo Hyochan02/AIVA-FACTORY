@@ -1,3 +1,4 @@
+import { Check, X } from 'lucide-react'
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/common/Button'
@@ -125,13 +126,13 @@ const Pricing: React.FC = () => {
               <div className="flex-1 space-y-2 mb-6">
                 {plan.features.map(f => (
                   <div key={f} className="flex items-center gap-2 text-sm text-slate-300">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                    <Check size={14} className="text-indigo-500" strokeWidth={2.5} />
                     {f}
                   </div>
                 ))}
                 {(PLAN_MISSING[plan.id] ?? []).map(f => (
                   <div key={f} className="flex items-center gap-2 text-sm text-slate-600">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    <X size={14} strokeWidth={2} />
                     {f}
                   </div>
                 ))}

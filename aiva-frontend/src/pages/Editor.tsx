@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { Music2, FileText, Mic, HardDrive, Film } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { Button } from '../components/common/Button'
 import { getTracks } from '../api/tracks'
@@ -53,12 +54,12 @@ function usePoller<T>(
 }
 
 // ──────────────────────────────────────────────────────────
-const TAB_INFO: { id: Tab; label: string; icon: string; desc: string; credit: number }[] = [
-  { id: 'extend',   label: '음악 연장',    icon: '🎵', desc: '기존 트랙을 이어서 연장합니다',        credit: 4  },
-  { id: 'lyrics',   label: '가사 생성',    icon: '📝', desc: 'AI로 가사를 자동 생성합니다',          credit: 2  },
-  { id: 'separate', label: '보컬 분리',    icon: '🎙️', desc: '보컬과 반주를 분리합니다',             credit: 10 },
-  { id: 'wav',      label: 'WAV 변환',     icon: '💾', desc: '고음질 WAV 파일로 변환합니다',         credit: 2  },
-  { id: 'video',    label: '뮤직비디오',   icon: '🎬', desc: 'MP4 비디오를 자동 생성합니다',         credit: 5  },
+const TAB_INFO: { id: Tab; label: string; icon: React.ReactNode; desc: string; credit: number }[] = [
+  { id: 'extend',   label: '음악 연장',    icon: React.createElement(Music2,    { size: 15 }), desc: '기존 트랙을 이어서 연장합니다',    credit: 4  },
+  { id: 'lyrics',   label: '가사 생성',    icon: React.createElement(FileText,  { size: 15 }), desc: 'AI로 가사를 자동 생성합니다',      credit: 2  },
+  { id: 'separate', label: '보컬 분리',    icon: React.createElement(Mic,       { size: 15 }), desc: '보컬과 반주를 분리합니다',         credit: 10 },
+  { id: 'wav',      label: 'WAV 변환',     icon: React.createElement(HardDrive, { size: 15 }), desc: '고음질 WAV 파일로 변환합니다',     credit: 2  },
+  { id: 'video',    label: '뮤직비디오',   icon: React.createElement(Film,      { size: 15 }), desc: 'MP4 비디오를 자동 생성합니다',     credit: 5  },
 ]
 
 const Editor: React.FC = () => {
@@ -200,7 +201,7 @@ const Editor: React.FC = () => {
           {/* 설명 카드 */}
           <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-5">
             <div className="flex items-center gap-3 mb-1">
-              <span className="text-2xl">{tabInfo.icon}</span>
+              <span className="text-indigo-300">{tabInfo.icon}</span>
               <div>
                 <h2 className="text-base font-black text-white">{tabInfo.label}</h2>
                 <p className="text-xs text-slate-400">{tabInfo.desc} · 크레딧 {tabInfo.credit}개 소모</p>
@@ -286,20 +287,21 @@ const Editor: React.FC = () => {
           {activeTab === 'separate' && (
             <div className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-5 space-y-3">
               <label className="block text-sm font-bold text-white mb-2">분리 모드</label>
-              <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${separateType === 'separate_vocal' ? 'border-indigo-500/60 bg-indigo-600/10' : 'border-[rgba(129,140,248,0.15)]'}`}>
-                <input type="radio" name="sep" value="separate_vocal" checked={separateType === 'separate_vocal'} onChange={() => setSeparateType('separate_vocal')} className="mt-0.5 accent-indigo-500" />
-                <div>
-                  <div className="text-sm font-bold text-white">보컬 + 반주 분리 (10크레딧)</div>
-                  <div className="text-xs text-slate-400 mt-0.5">2개 파일 반환: 보컬, 반주</div>
-                </div>
-              </label>
-              <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${separateType === 'split_stem' ? 'border-indigo-500/60 bg-indigo-600/10' : 'border-[rgba(129,140,248,0.15)]'}`}>
-                <input type="radio" name="sep" value="split_stem" checked={separateType === 'split_stem'} onChange={() => setSeparateType('split_stem')} className="mt-0.5 accent-indigo-500" />
-                <div>
-                  <div className="text-sm font-bold text-white">전체 악기 분리 (50크레딧)</div>
-                  <div className="text-xs text-slate-400 mt-0.5">최대 12개 파일: 보컬, 드럼, 베이스, 기타, 키보드 등</div>
-                </div>
-              </label>
+              {([
+                { value: 'separate_vocal', label: '보컬 + 반주 분리', credit: '10크레딧', desc: '2개 파일 반환: 보컬, 반주' },
+                { value: 'split_stem',     label: '전체 악기 분리',   credit: '50크레딧', desc: '최대 12개 파일: 보컬, 드럼, 베이스, 기타, 키보드 등' },
+              ] as const).map(opt => (
+                <button key={opt.value} type="button" onClick={() => setSeparateType(opt.value)}
+                  className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${separateType === opt.value ? 'border-indigo-500/60 bg-indigo-600/10' : 'border-[rgba(129,140,248,0.15)] hover:border-indigo-700/40'}`}>
+                  <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${separateType === opt.value ? 'border-indigo-400' : 'border-slate-600'}`}>
+                    {separateType === opt.value && <div className="w-2 h-2 rounded-full bg-indigo-400" />}
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-white">{opt.label} <span className="font-normal text-slate-400">({opt.credit})</span></div>
+                    <div className="text-xs text-slate-400 mt-0.5">{opt.desc}</div>
+                  </div>
+                </button>
+              ))}
             </div>
           )}
 
@@ -353,7 +355,7 @@ const Editor: React.FC = () => {
                 <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                 처리 중... (완료까지 30~120초)
               </span>
-            ) : loading ? '요청 중...' : `${tabInfo.icon} ${tabInfo.label} 시작`}
+            ) : loading ? '요청 중...' : <span className="flex items-center gap-1.5">{tabInfo.icon}{tabInfo.label} 시작</span>}
           </Button>
         </div>
 
@@ -444,8 +446,8 @@ const Editor: React.FC = () => {
               (activeTab === 'wav' && wavUrl) ||
               (activeTab === 'video' && videoUrl)
             ) && (
-              <div className="text-center py-8 text-slate-600">
-                <p className="text-3xl mb-2">{tabInfo.icon}</p>
+              <div className="flex flex-col items-center gap-2 py-8 text-slate-600">
+                <div className="[&>svg]:w-8 [&>svg]:h-8">{tabInfo.icon}</div>
                 <p className="text-xs">결과가 여기에 표시됩니다</p>
               </div>
             )}

@@ -27,7 +27,7 @@ router.put('/settings', async (req, res, next) => {
 
     for (const key of allowed) {
       if (req.body[key] !== undefined) {
-        fields.push(`${key} = ?`)
+        fields.push(`\`${key}\` = ?`)
         vals.push(req.body[key] ? 1 : 0)
       }
     }

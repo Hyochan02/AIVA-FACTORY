@@ -1,4 +1,5 @@
 import React from 'react'
+import { Music2, Zap, Play, Folder, Sparkles } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '../components/common/Button'
 import { Badge } from '../components/common/Badge'
@@ -36,10 +37,10 @@ const Dashboard: React.FC = () => {
   // ── 통계 카드 데이터 매핑 ────────────────────────────────
   const stats = statsData
     ? [
-        { label: '생성한 트랙', value: String(statsData.totalTracks),         icon: '🎵', change: `+${statsData.weeklyChange.tracks} 이번 주` },
-        { label: '남은 크레딧',  value: String(statsData.creditsRemaining),   icon: '⚡', change: '100에서 시작' },
-        { label: '총 재생 수',   value: formatPlays(statsData.totalPlays),    icon: '▶️', change: `+${formatPlays(statsData.weeklyChange.plays)} 이번 주` },
-        { label: '라이브러리',   value: String(statsData.libraryCount),       icon: '📁', change: `${statsData.libraryCount}개 저장됨` },
+        { label: '생성한 트랙', value: String(statsData.totalTracks),         icon: React.createElement(Music2,  { size: 18 }), change: `+${statsData.weeklyChange.tracks} 이번 주` },
+        { label: '남은 크레딧',  value: String(statsData.creditsRemaining),   icon: React.createElement(Zap,    { size: 18 }), change: '100에서 시작' },
+        { label: '총 재생 수',   value: formatPlays(statsData.totalPlays),    icon: React.createElement(Play,   { size: 18 }), change: `+${formatPlays(statsData.weeklyChange.plays)} 이번 주` },
+        { label: '라이브러리',   value: String(statsData.libraryCount),       icon: React.createElement(Folder, { size: 18 }), change: `${statsData.libraryCount}개 저장됨` },
       ]
     : null
 
@@ -52,7 +53,7 @@ const Dashboard: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black text-white">
-            안녕하세요, {user?.name ?? '사용자'}님 👋
+            안녕하세요, {user?.name ?? '사용자'}님 <Sparkles size={20} className="inline text-yellow-400" />
           </h1>
           <p className="text-sm text-slate-400 mt-1">오늘도 새로운 음악을 만들어보세요.</p>
         </div>
@@ -69,7 +70,7 @@ const Dashboard: React.FC = () => {
           : stats?.map(s => (
               <div key={s.label} className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-5">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-xl">{s.icon}</span>
+                  <span className="text-indigo-300">{s.icon}</span>
                   <Badge variant="info">{s.change}</Badge>
                 </div>
                 <div className="text-3xl font-black text-white mb-1">{s.value}</div>
@@ -125,7 +126,7 @@ const Dashboard: React.FC = () => {
 
           {!tracksLoading && recentTracks.length === 0 && (
             <div className="text-center py-8">
-              <div className="text-3xl mb-2">🎵</div>
+              <Music2 size={40} className="mx-auto mb-2 text-slate-600" />
               <p className="text-sm text-slate-400">아직 생성한 트랙이 없습니다.</p>
               <Button variant="soft" size="sm" className="mt-3" onClick={() => navigate('/create')}>첫 트랙 만들기</Button>
             </div>

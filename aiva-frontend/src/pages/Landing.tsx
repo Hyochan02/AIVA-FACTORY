@@ -1,4 +1,5 @@
-﻿import React from 'react'
+import { Play, Music2, SlidersHorizontal, Globe, CheckCircle2, Download, Zap, Sparkles } from 'lucide-react'
+import React from 'react'
 import { Link } from 'react-router-dom'
 import { Badge } from '../components/common/Badge'
 
@@ -8,19 +9,19 @@ const BtnSecondary  = 'inline-flex items-center justify-center gap-2 px-6 py-3 t
 const BtnPrimarySm  = 'inline-flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-sm bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-900/40 transition-all duration-200'
 const BtnGhostSm    = 'inline-flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-sm text-slate-400 hover:text-white hover:bg-[#111847] transition-all duration-200'
 
-const FEATURES = [
-  { icon: '\U0001f3b5', title: '텍스트 → 음악', desc: '"잊 잘 때 듣는 따뜻한 피아노" 한 줄이면 됩니다. 멜로디부터 마스터링까지 자동.' },
-  { icon: '\U0001f39b️', title: '스템 분리 편집', desc: '드럼, 베이스, 보컈, 코드를 독립 트랙으로 받아 자유롭게 리믹스하세요.' },
-  { icon: '\U0001f30d', title: '200+ 장르 & 무드', desc: 'K-팝부터 앵비언트, ASMR, 광고용 BGM까지. 원하는 분위기 그대로.' },
-  { icon: '✅', title: '상업적 이용 가능', desc: 'Pro 플랜은 유튜브, 광고, 게임, 스트리밍 모두에 자유롭게 사용 가능.' },
-  { icon: '⬇️', title: '고품질 WAV/MP3', desc: '최대 24bit/48kHz 무손실 다운로드와 스템 zip 일괄 다운로드 지원.' },
-  { icon: '⚡', title: '30초 안에 결과', desc: '4분 트랙도 평균 27초. 빠르게 여러 버전을 비교하며 골라보세요.' },
+const FEATURES: { icon: React.ReactNode; title: string; desc: string }[] = [
+  { icon: <Music2 size={22} />,          title: '텍스트 → 음악',    desc: '"잊 잘 때 듣는 따뜻한 피아노" 한 줄이면 됩니다. 멜로디부터 마스터링까지 자동.' },
+  { icon: <SlidersHorizontal size={22} />, title: '스텝 분리 편집', desc: '드럼, 베이스, 보컬, 코드를 독립 트랙으로 받아 자유롭게 리믹스하세요.' },
+  { icon: <Globe size={22} />,           title: '200+ 장르 & 무드', desc: 'K-팝부터 앵비언트, ASMR, 광고용 BGM까지. 원하는 분위기 그대로.' },
+  { icon: <CheckCircle2 size={22} />,    title: '상업적 이용 가능', desc: 'Pro 플랜은 유튜브, 광고, 게임, 스트리밍 모두에 자유롭게 사용 가능.' },
+  { icon: <Download size={22} />,        title: '고품질 WAV/MP3',  desc: '최대 24bit/48kHz 무손실 다운로드와 스텝 zip 일괄 다운로드 지원.' },
+  { icon: <Zap size={22} />,             title: '30초 안에 결과',  desc: '4분 트랙도 평균 27초. 빠르게 여러 버전을 비교하며 골라보세요.' },
 ]
 const HOW_STEPS = [
-  { num: 1, title: '프롤프트 입력', desc: '원하는 음악을 한 문장으로 묘사하거나 장르/무드 칩으로 빠르게 선택.' },
+  { num: 1, title: '프롬프트 입력', desc: '원하는 음악을 한 문장으로 묘사하거나 장르/무드 칩으로 빠르게 선택.' },
   { num: 2, title: '옵션 설정', desc: '길이, BPM, 키, 악기 구성을 조정. 잘 모르면 AUTO만 눌러도 됩니다.' },
   { num: 3, title: 'AI 생성', desc: '30초 안에 2개 버전 완성. 마음에 안 들면 다시 굴리세요.' },
-  { num: 4, title: '편집 & 다운로드', desc: '에디터에서 자르고, 페이드하고, 스템별로 받아가세요.' },
+  { num: 4, title: '편집 & 다운로드', desc: '에디터에서 자르고, 페이드하고, 스텝별로 받아가세요.' },
 ]
 const SHOWCASE = [
   { title: 'Midnight Protocol', sub: 'Synthwave · @juno', color: 'from-indigo-700 to-violet-700' },
@@ -57,14 +58,17 @@ const Landing: React.FC = () => (
     <section className="relative max-w-7xl mx-auto px-6 py-24 text-center overflow-hidden">
       <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-indigo-600/15 blur-[100px] pointer-events-none" />
       <div className="inline-block mb-6">
-        <Badge variant="new">\U0001f3b5 AI 사운드 엔진 v2.5 출시</Badge>
+        <Badge variant="new">
+          <Sparkles size={11} className="inline mr-1.5 opacity-80" />
+          AI 사운드 엔진 v2.5 출시
+        </Badge>
       </div>
       <h1 className="text-5xl md:text-7xl font-black leading-[1.05] tracking-[-0.04em] mb-6">
         한 줄 문장으로<br />
         <span className="grad-text">완성된 음악</span>을 만들다
       </h1>
       <p className="text-lg text-slate-400 max-w-xl mx-auto mb-10">
-        텍스트만 입력하면 AIVA FACTORY가 멜로디, 비트, 보컈, 마스터링까지 한번에 완성합니다. 가입 즉시 100 크레딧 무료.
+        텍스트만 입력하면 AIVA FACTORY가 멜로디, 비트, 보컬, 마스터링까지 한번에 완성합니다. 가입 즉시 100 크레딧 무료.
       </p>
       <div className="flex justify-center gap-3 flex-wrap">
         <Link to="/signup"  className={BtnPrimary}>무료로 시작하기</Link>
@@ -82,11 +86,11 @@ const Landing: React.FC = () => (
         <div className="p-8 grid md:grid-cols-[300px_1fr] gap-6 text-left">
           <div className="bg-[#080c2a] rounded-xl border border-[rgba(129,140,248,0.15)] p-5">
             <div className="flex justify-between items-center mb-3">
-              <span className="text-xs font-bold text-slate-300">프롤프트</span>
+              <span className="text-xs font-bold text-slate-300">프롬프트</span>
               <Badge variant="info">3 / 5</Badge>
             </div>
             <div className="text-sm text-slate-300 bg-navy-800/60 rounded-lg p-3 leading-relaxed min-h-[80px]">
-              "비 오는 도쿄 밤, 시티팝 분위기의 잌잠한 LoFi 트랙. 색소폰 솔로와 부드러운 신스 패드"
+              "비 오는 도쿄 밤, 시티팝 분위기의 잔잠한 LoFi 트랙. 색소폰 솔로와 부드러운 신스 패드"
             </div>
             <div className="flex flex-wrap gap-1.5 mt-3">
               {['LoFi', '시티팝', '색소폰', '120 BPM'].map((c, i) => (
@@ -103,7 +107,7 @@ const Landing: React.FC = () => (
             ].map(t => (
               <div key={t.title} className="flex items-center gap-3 p-3 rounded-xl bg-navy-800/40 border border-[rgba(129,140,248,0.1)]">
                 <div className={"w-11 h-11 rounded-xl bg-linear-to-br " + t.color + " flex items-center justify-center text-white shrink-0"}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                  <Play size={18} fill="currentColor" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold text-slate-200 truncate">{t.title}</div>
@@ -134,8 +138,8 @@ const Landing: React.FC = () => (
       </div>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {FEATURES.map(f => (
-          <div key={f.title} className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-8 hover:-translate-y-1 transition-transform duration-200">
-            <div className="w-12 h-12 rounded-[14px] bg-indigo-900/50 border border-indigo-700/30 flex items-center justify-center text-2xl mb-5">{f.icon}</div>
+          <div key={f.title as string} className="bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl p-8 hover:-translate-y-1 transition-transform duration-200">
+            <div className="w-12 h-12 rounded-[14px] bg-indigo-900/50 border border-indigo-700/30 flex items-center justify-center text-indigo-300 mb-5">{f.icon}</div>
             <h3 className="text-base font-bold text-white mb-2">{f.title}</h3>
             <p className="text-sm text-slate-400 leading-relaxed">{f.desc}</p>
           </div>
@@ -172,12 +176,10 @@ const Landing: React.FC = () => (
         {SHOWCASE.map(t => (
           <div key={t.title} className="group bg-[#0d1340] border border-[rgba(129,140,248,0.15)] rounded-2xl overflow-hidden hover:-translate-y-1 transition-transform duration-200 cursor-pointer">
             <div className={"h-36 bg-linear-to-br " + t.color + " flex items-center justify-center relative"}>
-              <svg width="44" height="44" viewBox="0 0 24 24" fill="white" opacity="0.7">
-                <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3" fill="white"/><circle cx="18" cy="16" r="3" fill="white"/>
-              </svg>
+              <Music2 size={44} className="text-white opacity-70" />
               <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20">
                 <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+                  <Play size={20} fill="white" className="text-white" />
                 </div>
               </div>
             </div>

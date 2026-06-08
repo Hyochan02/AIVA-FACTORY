@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Music2, CheckCircle2, XCircle, Piano } from 'lucide-react'
 import { pollGenerateStatus } from '../api/generate'
 import type { StatusResponse, TrackVersion } from '../api/generate'
 import { Button } from '../components/common/Button'
@@ -69,8 +70,8 @@ const Generating: React.FC = () => {
           isError ? 'bg-gradient-to-br from-red-700 to-rose-800'     :
                     'bg-gradient-to-br from-indigo-600 to-violet-600'
         }`}>
-          <span className="text-4xl">
-            {isDone ? '✅' : isError ? '❌' : '🎵'}
+          <span className="flex items-center justify-center">
+            {isDone ? <CheckCircle2 size={40} className="text-white" /> : isError ? <XCircle size={40} className="text-white" /> : <Music2 size={40} className="text-white" />}
           </span>
         </div>
       </div>
@@ -123,7 +124,7 @@ const Generating: React.FC = () => {
                 {v.image_url ? (
                   <img src={v.image_url} alt="" className="w-14 h-14 rounded-lg object-cover shrink-0" />
                 ) : (
-                  <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-indigo-700 to-violet-800 shrink-0 flex items-center justify-center text-2xl">🎵</div>
+                  <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-indigo-700 to-violet-800 shrink-0 flex items-center justify-center text-white"><Music2 size={24} /></div>
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-bold text-white truncate">
@@ -171,7 +172,7 @@ const Generating: React.FC = () => {
       {!isDone && !isError && (
         <div className="flex flex-col items-center gap-3">
           <div className="flex gap-2 text-xs text-slate-500">
-            <span>🎹 Suno AI 엔진</span>
+            <span className="flex items-center gap-1"><Piano size={12} /> Suno AI 엔진</span>
             <span>·</span>
             <span>2개 버전 생성</span>
             <span>·</span>

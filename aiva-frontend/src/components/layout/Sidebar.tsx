@@ -1,98 +1,33 @@
 import React from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
+import {
+  LayoutDashboard, Sparkles, Library, SlidersHorizontal,
+  Compass, CreditCard, User, LogOut,
+} from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { Badge } from '../common/Badge'
 import { Button } from '../common/Button'
 
-// ──────────────────────────────────────────────────────────
-// Best Practice: 네비게이션 항목을 데이터로 분리
-// → 추가/제거 시 JSX를 건드리지 않아도 됨 (데이터 주도 렌더링)
-// ──────────────────────────────────────────────────────────
 const NAV_ITEMS = [
   {
     section: '메뉴',
     items: [
-      {
-        key: 'dashboard',
-        label: '대시보드',
-        path: '/dashboard',
-        icon: (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M3 12L12 4l9 8"/><path d="M5 10v10h14V10"/>
-          </svg>
-        ),
-      },
-      {
-        key: 'create',
-        label: '음악 생성',
-        path: '/create',
-        badge: 'NEW',
-        icon: (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>
-          </svg>
-        ),
-      },
-      {
-        key: 'library',
-        label: '내 라이브러리',
-        path: '/library',
-        icon: (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-          </svg>
-        ),
-      },
-      {
-        key: 'editor',
-        label: '에디터',
-        path: '/editor',
-        icon: (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M4 12h2M8 8h2M12 4h2M16 8h2M20 12h-2M8 16h2M12 20h2M16 16h2"/>
-          </svg>
-        ),
-      },
-      {
-        key: 'explore',
-        label: '탐색',
-        path: '/explore',
-        icon: (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="9"/><path d="M16 8l-2 6-6 2 2-6z"/>
-          </svg>
-        ),
-      },
+      { key: 'dashboard', label: '대시보드',    path: '/dashboard', icon: <LayoutDashboard   size={18} /> },
+      { key: 'create',    label: '음악 생성',   path: '/create',    icon: <Sparkles          size={18} />, badge: 'NEW' },
+      { key: 'library',   label: '내 라이브러리', path: '/library',  icon: <Library           size={18} /> },
+      { key: 'editor',    label: '에디터',       path: '/editor',   icon: <SlidersHorizontal size={18} /> },
+      { key: 'explore',   label: '탐색',         path: '/explore',  icon: <Compass           size={18} /> },
     ],
   },
   {
     section: '계정',
     items: [
-      {
-        key: 'pricing',
-        label: '요금제',
-        path: '/pricing',
-        icon: (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-          </svg>
-        ),
-      },
-      {
-        key: 'profile',
-        label: '프로필',
-        path: '/profile',
-        icon: (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>
-          </svg>
-        ),
-      },
+      { key: 'pricing', label: '요금제', path: '/pricing', icon: <CreditCard size={18} /> },
+      { key: 'profile', label: '프로필', path: '/profile', icon: <User       size={18} /> },
     ],
   },
 ]
 
-// NavLink activeClassName → Tailwind 클래스를 콜백으로 적용
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   [
     'flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium transition-all duration-150',
@@ -117,7 +52,6 @@ export const Sidebar: React.FC = () => {
         className="flex items-center gap-2.5 px-5 py-4 font-black text-lg text-[var(--color-text)] border-b border-(--border-color)"
         style={{ height: 'var(--topbar-h)' }}
       >
-        {/* 로고 마크 */}
         <span className="w-8 h-8 rounded-sm bg-linear-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white font-black text-sm shadow-lg shadow-indigo-900/50">
           A
         </span>
@@ -156,9 +90,7 @@ export const Sidebar: React.FC = () => {
           className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:text-rose-400 hover:bg-rose-900/20 transition-all shrink-0"
           aria-label="로그아웃"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
-          </svg>
+          <LogOut size={14} />
         </button>
       </div>
 
@@ -167,12 +99,7 @@ export const Sidebar: React.FC = () => {
         <div className="rounded-[14px] p-4 bg-linear-to-br from-navy-700 to-indigo-900/60 border border-indigo-700/30">
           <div className="text-sm font-bold text-[var(--color-text)] mb-1">Pro로 업그레이드</div>
           <div className="text-xs text-[var(--color-text-muted)] mb-3">무제한 생성과 고품질 다운로드</div>
-          <Button
-            variant="primary"
-            size="sm"
-            fullWidth
-            onClick={() => navigate('/pricing')}
-          >
+          <Button variant="primary" size="sm" fullWidth onClick={() => navigate('/pricing')}>
             업그레이드
           </Button>
         </div>

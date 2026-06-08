@@ -24,11 +24,9 @@ router.get('/trending', async (req, res, next) => {
     if (genre) { where += ' AND genre = ?'; params.push(genre) }
 
     const [items] = await pool.query(
-      `SELECT t.*, u.name as owner_name, u.avatar_url as owner_avatar,
-              (@rank := @rank + 1) as rank
+      `SELECT t.*, u.name as owner_name, u.avatar_url as owner_avatar
        FROM tracks t
-       JOIN users u ON t.user_id = u.id,
-       (SELECT @rank := ${offset}) r
+       JOIN users u ON t.user_id = u.id
        ${where}
        ORDER BY (t.play_count * 1 + t.like_count * 3) DESC
        LIMIT ? OFFSET ?`,

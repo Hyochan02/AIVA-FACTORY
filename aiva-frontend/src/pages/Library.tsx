@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { LayoutGrid, List, Music2, Play } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Badge } from '../components/common/Badge'
 import { Button } from '../components/common/Button'
@@ -58,8 +59,8 @@ const Library: React.FC = () => {
             <button key={v} onClick={() => setView(v)}
               className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${view === v ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}>
               {v === 'grid'
-                ? <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z"/></svg>
-                : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+                ? <LayoutGrid size={14} />
+                : <List size={14} />
               }
             </button>
           ))}
@@ -112,7 +113,7 @@ const Library: React.FC = () => {
                   className="bg-[#0d1340] border border-(--border-color) rounded-2xl overflow-hidden hover:-translate-y-1 transition-transform duration-200 cursor-pointer group"
                   onClick={() => navigate(`/player/${t.id}`)}>
                   <div className={`h-32 bg-linear-to-br ${gradColor(t.id)} flex items-center justify-center relative`}>
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="white" opacity="0.6"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3" fill="white"/><circle cx="18" cy="16" r="3" fill="white"/></svg>
+                    <Music2 size={40} className="opacity-60 text-white" />
                     {t.status !== 'done' && (
                       <div className="absolute top-2 right-2 px-2 py-0.5 text-xs font-bold bg-amber-500/80 text-white rounded-full">
                         {t.status === 'generating' ? '생성 중' : t.status === 'error' ? '오류' : '대기'}
@@ -120,7 +121,7 @@ const Library: React.FC = () => {
                     )}
                     <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                       <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+                        <Play size={16} fill="white" className="text-white" />
                       </div>
                     </div>
                   </div>
@@ -160,7 +161,7 @@ const Library: React.FC = () => {
                   onClick={() => navigate(`/player/${t.id}`)}>
                   <span className="w-5 text-xs text-slate-500 text-center">{i+1}</span>
                   <div className={`w-10 h-10 rounded-xl bg-linear-to-br ${gradColor(t.id)} flex items-center justify-center text-white shrink-0`}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                    <Play size={14} fill="currentColor" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-semibold text-white truncate">{t.title}</div>

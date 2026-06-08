@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
-import { Music2, Play, Heart, Flame, Mic, Search } from 'lucide-react'
+import { Music2, Play, Heart, Flame, Mic, Search, Radio } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Badge } from '../components/common/Badge'
 import { useApi } from '../hooks/useApi'
@@ -70,7 +70,7 @@ const Explore: React.FC = () => {
   )
 
   const { data: recentData, loading: recentLoading } = useApi<PaginatedResponse<Track>>(
-    () => getRecent({ genre: activeGenre, limit: 4 }),
+    () => getRecent({ genre: activeGenre, limit: 2 }),
     [activeGenre],
     !isSearching
   )
@@ -216,44 +216,46 @@ const Explore: React.FC = () => {
       )}
 
       {!isSearching && (
-        <div className="grid lg:grid-cols-[1fr_280px] gap-6">
+        <div className="grid lg:grid-cols-[1fr_280px] gap-6 items-stretch">
           {/* ── 최신 공개 트랙 ───────────────────────────── */}
-          <div className="space-y-4">
-            <h2 className="font-bold text-white">최신 공개 트랙</h2>
-            {recentLoading
-              ? <div className="grid sm:grid-cols-2 gap-4">{Array(4).fill(0).map((_, i) => <CardSkeleton key={i} />)}</div>
-              : recent.length === 0
-                ? <p className="text-sm text-slate-400">최신 트랙이 없습니다.</p>
-                : <div className="grid sm:grid-cols-2 gap-4">
-                    {recent.map(t => (
-                      <div key={t.id}
-                        className="bg-[#0d1340] border border-(--border-color) rounded-2xl overflow-hidden cursor-pointer hover:-translate-y-1 transition-transform group"
-                        onClick={() => navigate(`/player/${t.id}`)}>
-                        <div className={`h-28 bg-linear-to-br ${gradColor(t.id)} flex items-center justify-center relative`}>
-                          <Music2 size={36} className="opacity-60 text-white" />
-                          <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                              <Play size={16} fill="white" className="text-white" />
+          <div className="flex flex-col gap-4">
+            <h2 className="flex items-center gap-2 font-bold text-white"><Radio size={18} className="text-indigo-300" /> 최신 공개 트랙</h2>
+            <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-4 flex-1 flex flex-col gap-3">
+              {recentLoading
+                ? <div className="grid sm:grid-cols-2 gap-4">{Array(2).fill(0).map((_, i) => <CardSkeleton key={i} />)}</div>
+                : recent.length === 0
+                  ? <p className="text-sm text-slate-400 py-4 text-center">최신 트랙이 없습니다.</p>
+                  : <div className="grid sm:grid-cols-2 gap-3 content-start">
+                      {recent.map(t => (
+                        <div key={t.id}
+                          className="bg-[#0d1340] border border-(--border-color) rounded-2xl overflow-hidden cursor-pointer hover:-translate-y-1 transition-transform duration-200 group"
+                          onClick={() => navigate(`/player/${t.id}`)}>
+                          <div className={`h-32 bg-linear-to-br ${gradColor(t.id)} flex items-center justify-center relative`}>
+                            <Music2 size={40} className="opacity-60 text-white" />
+                            <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                                <Play size={16} fill="white" className="text-white" />
+                              </div>
+                            </div>
+                          </div>
+                          <div className="p-4">
+                            <div className="font-semibold text-white text-sm truncate mb-2">{t.title}</div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="info">{t.genre}</Badge>
+                              <span className="ml-auto text-xs text-slate-400 shrink-0">{formatDuration(t.duration)}</span>
                             </div>
                           </div>
                         </div>
-                        <div className="p-3">
-                          <div className="text-sm font-semibold text-white truncate">{t.title}</div>
-                          <div className="flex justify-between items-center mt-1">
-                            <span className="text-xs text-slate-400">{formatDuration(t.duration)}</span>
-                            <Badge variant="info">{t.genre}</Badge>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-            }
+                      ))}
+                    </div>
+              }
+            </div>
           </div>
 
           {/* ── 인기 크리에이터 ──────────────────────────── */}
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4">
             <h2 className="flex items-center gap-2 font-bold text-white"><Mic size={18} className="text-indigo-300" /> 인기 크리에이터</h2>
-            <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-3 flex flex-col gap-1">
+            <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-3 flex flex-col gap-1 flex-1">
               {creators.length === 0 && (
                 <p className="text-sm text-slate-400 text-center py-4">크리에이터 정보를 불러오는 중...</p>
               )}

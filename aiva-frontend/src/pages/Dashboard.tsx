@@ -11,7 +11,7 @@ import { getTracks } from '../api/tracks'
 import { formatDuration, formatPlays, formatDate, gradColor } from '../utils/format'
 import type { Track, PaginatedResponse } from '../types'
 
-const QUICK_GENRES = ['Lo-Fi','City Pop','Ambient','Synthwave','K-Pop','EDM','Jazz','Acoustic']
+const QUICK_GENRES = ['Lo-Fi','City Pop','Ambient','Synthwave','K-Pop','EDM','Jazz','Acoustic','Hip-Hop','Classical','R&B','Drum & Bass']
 
 // ── 로딩 스켈레톤 ─────────────────────────────────────────
 const StatSkeleton = () => (
@@ -30,7 +30,7 @@ const Dashboard: React.FC = () => {
     useApi<DashboardStats>(() => getStats())
 
   const { data: tracksData, loading: tracksLoading } =
-    useApi<PaginatedResponse<Track>>(() => getTracks({ limit: 3, sort: 'createdAt', order: 'desc' }))
+    useApi<PaginatedResponse<Track>>(() => getTracks({ limit: 1, sort: 'createdAt', order: 'desc' }))
 
   // ── 통계 카드 데이터 매핑 ────────────────────────────────
   const stats = statsData
@@ -93,9 +93,9 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-[1fr_340px] gap-6">
+      <div className="grid lg:grid-cols-[1fr_340px] gap-6 items-stretch">
         {/* ── 최근 트랙 ──────────────────────────────────── */}
-        <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6">
+        <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6 flex flex-col">
           <div className="flex items-center justify-between mb-5">
             <h2 className="font-bold text-white">최근 트랙</h2>
             <Link to="/library" className="text-xs text-indigo-400 hover:text-indigo-300">전체 보기 →</Link>
@@ -103,7 +103,7 @@ const Dashboard: React.FC = () => {
 
           {tracksLoading && (
             <div className="flex flex-col gap-3">
-              {Array(3).fill(0).map((_, i) => (
+              {Array(1).fill(0).map((_, i) => (
                 <div key={i} className="flex items-center gap-3 p-3 rounded-xl animate-pulse">
                   <div className="w-11 h-11 rounded-xl bg-navy-700 shrink-0" />
                   <div className="flex-1 space-y-2">
@@ -145,22 +145,29 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* ── 사이드 위젯 ────────────────────────────────── */}
-        <div className="flex flex-col gap-4">
-          <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-5">
-            <div className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3">크레딧 현황</div>
-            <div className="flex justify-between text-sm mb-2">
-              <span className="text-slate-400">남은 크레딧</span>
-              <span className="font-bold text-white">{credits} / 100</span>
+        <div className="flex flex-col gap-4 h-full">
+          <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6 flex flex-col flex-1">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="font-bold text-white">크레딧 현황</h2>
             </div>
-            <div className="h-2 bg-navy-800 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-linear-to-r from-indigo-600 to-violet-600 rounded-full transition-all duration-500"
-                style={{ width: `${Math.min(credits, 100)}%` }}
-              />
+            {/* 제목과 컨텐츠 사이 공간 */}
+            <div className="flex-1" />
+            {/* 크레딧 정보 + 버튼 세트 */}
+            <div>
+              <div className="flex justify-between items-center text-sm mb-3">
+                <span className="text-slate-400">남은 크레딧</span>
+                <span className="text-xl font-black text-white">{credits} <span className="text-sm font-normal text-slate-400">/ 100</span></span>
+              </div>
+              <div className="h-2 bg-navy-800 rounded-full overflow-hidden mb-4">
+                <div
+                  className="h-full bg-linear-to-r from-indigo-600 to-violet-600 rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(credits, 100)}%` }}
+                />
+              </div>
+              <Button variant="ghost" size="sm" fullWidth onClick={() => navigate('/pricing')}>
+                크레딧 충전 →
+              </Button>
             </div>
-            <Button variant="ghost" size="sm" fullWidth className="mt-3" onClick={() => navigate('/pricing')}>
-              크레딧 충전 →
-            </Button>
           </div>
 
           {/* 가입일 */}

@@ -6,7 +6,7 @@ import { Button } from '../components/common/Button'
 import { Waveform } from '../components/common/Waveform'
 import { useApi } from '../hooks/useApi'
 import { getTracks, updateTrack } from '../api/tracks'
-import { formatDuration, formatPlays, formatDate, gradColor } from '../utils/format'
+import { formatDuration, formatPlays, gradColor } from '../utils/format'
 import type { Track, PaginatedResponse } from '../types'
 
 const FILTERS = ['전체', 'Lo-Fi', 'City Pop', 'Ambient', 'Synthwave', 'K-Pop', 'EDM', 'Jazz', 'Acoustic', 'Hip-Hop', 'Classical', 'R&B', 'Drum & Bass']
@@ -137,21 +137,6 @@ const Library: React.FC = () => {
                         {t.status === 'generating' ? '생성 중' : t.status === 'error' ? '오류' : '대기'}
                       </div>
                     )}
-                    {/* 공개/비공개 배지 */}
-                    <button
-                      onClick={e => handleVisibilityToggle(e, t)}
-                      disabled={togglingId === t.id}
-                      className={`absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
-                        (t as Track & { is_public?: number }).is_public
-                          ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/30'
-                          : 'bg-slate-800/80 border-slate-600/40 text-slate-400 hover:bg-slate-700/80'
-                      } ${togglingId === t.id ? 'opacity-50' : ''}`}
-                    >
-                      {(t as Track & { is_public?: number }).is_public
-                        ? <><Globe size={9} />PUBLIC</>
-                        : <><Lock size={9} />PRIVATE</>
-                      }
-                    </button>
                     <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                       <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
                         <Play size={16} fill="white" className="text-white" />
@@ -159,14 +144,24 @@ const Library: React.FC = () => {
                     </div>
                   </div>
                   <div className="p-4">
-                    <div className="font-semibold text-white text-sm truncate">{t.title}</div>
-                    <div className="flex items-center justify-between mt-1">
+                    <div className="font-semibold text-white text-sm truncate mb-2">{t.title}</div>
+                    <div className="flex items-center gap-2">
                       <Badge variant="info">{t.genre}</Badge>
-                      <span className="text-xs text-slate-400">{formatDuration(t.duration)}</span>
-                    </div>
-                    <div className="flex items-center justify-between mt-3 text-xs text-slate-500">
-                      <span>▶ {formatPlays(t.plays)}</span>
-                      <span>{formatDate(t.createdAt)}</span>
+                      <button
+                        onClick={e => handleVisibilityToggle(e, t)}
+                        disabled={togglingId === t.id}
+                        className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
+                          (t as Track & { is_public?: number }).is_public
+                            ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/30'
+                            : 'bg-slate-800/80 border-slate-600/40 text-slate-400 hover:bg-slate-700/80'
+                        } ${togglingId === t.id ? 'opacity-50' : ''}`}
+                      >
+                        {(t as Track & { is_public?: number }).is_public
+                          ? <><Globe size={9} />PUBLIC</>
+                          : <><Lock size={9} />PRIVATE</>
+                        }
+                      </button>
+                      <span className="ml-auto text-xs text-slate-400 shrink-0">{formatDuration(t.duration)}</span>
                     </div>
                   </div>
                 </div>
@@ -201,7 +196,7 @@ const Library: React.FC = () => {
                     <div className="text-xs text-slate-400">{t.genre}</div>
                   </div>
                   <Waveform className="w-20 hidden md:flex" />
-                  <span className="text-xs text-slate-500 hidden sm:block">▶ {formatPlays(t.plays)}</span>
+                  <span className="text-xs text-slate-500 hidden sm:block">▶ {formatPlays((t as any).plays ?? (t as any).play_count ?? 0)}</span>
                   <span className="text-xs text-slate-400">{formatDuration(t.duration)}</span>
                   <button
                     onClick={e => handleVisibilityToggle(e, t)}

@@ -19,9 +19,9 @@ router.get('/trending', async (req, res, next) => {
     const periodDays: Record<string, number> = { day: 1, week: 7, month: 30 }
     const days = periodDays[period as string] ?? 7
 
-    let where = `WHERE is_public = 1 AND status = 'done' AND created_at >= DATE_SUB(NOW(), INTERVAL ${days} DAY)`
+    let where = `WHERE t.is_public = 1 AND t.status = 'done' AND t.created_at >= DATE_SUB(NOW(), INTERVAL ${days} DAY)`
     const params: unknown[] = []
-    if (genre) { where += ' AND genre = ?'; params.push(genre) }
+    if (genre) { where += ' AND t.genre = ?'; params.push(genre) }
 
     const [items] = await pool.query(
       `SELECT t.*, u.name as owner_name, u.avatar_url as owner_avatar

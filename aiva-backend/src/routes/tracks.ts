@@ -55,7 +55,7 @@ router.get('/:id', async (req, res, next) => {
 
       const [versions] = await conn.query('SELECT * FROM track_versions WHERE track_id = ? ORDER BY version_num', [req.params.id])
       const [[likeCount]] = await conn.query('SELECT COUNT(*) as c FROM likes WHERE track_id = ?', [req.params.id]) as unknown[][]
-      const [[myLike]]    = await conn.query('SELECT 1 FROM likes WHERE track_id = ? AND user_id = ?', [req.params.id, req.user!.id]) as unknown[][]
+      const [myLikeRows]  = await conn.query('SELECT 1 FROM likes WHERE track_id = ? AND user_id = ?', [req.params.id, req.user!.id]) as unknown[][]
 
       // 조회수 증가
       await conn.query('UPDATE tracks SET play_count = play_count + 1 WHERE id = ?', [req.params.id])
@@ -64,7 +64,7 @@ router.get('/:id', async (req, res, next) => {
         ...track,
         versions,
         likeCount: (likeCount as Record<string, unknown>).c,
-        isLiked: !!(myLike as unknown[]).length,
+        isLiked: (myLikeRows as unknown[]).length > 0,
       }})
     } finally { conn.release() }
   } catch (err) { next(err) }

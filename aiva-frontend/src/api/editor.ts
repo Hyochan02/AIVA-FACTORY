@@ -20,7 +20,7 @@ export const pollExtend = (jobId: string) =>
 
 // ─ Lyrics ──────────────────────────────────────────────────
 export interface LyricsPayload { prompt: string }
-export interface LyricsResult  { status: string; title?: string; text?: string }
+export interface LyricsResult  { status: string; title?: string; text?: string; variants?: Array<{ title: string; text: string }> }
 
 export const generateLyrics = (payload: LyricsPayload) =>
   apiClient.post('/editor/lyrics', payload)

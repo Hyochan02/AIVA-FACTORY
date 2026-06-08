@@ -187,10 +187,15 @@ router.get('/lyrics/:jobId', async (req, res, next) => {
       try {
         await conn.query("UPDATE suno_jobs SET status = 'done' WHERE id = ?", [job.id])
       } finally { conn.release() }
+      // Suno record-info 응답 구조: data.response.data[] (배열, 여러 변형 가능)
+      // 첫 번째 complete 항목 사용
+      const variants: Array<{ text?: string; title?: string; status?: string }> = data.response?.data ?? []
+      const first = variants.find((v) => v.status === 'complete') ?? variants[0] ?? {}
       res.json({ success: true, data: {
         status: 'done',
-        title: data.response?.title ?? '',
-        text:  data.response?.text  ?? '',
+        title: first.title ?? '',
+        text:  first.text  ?? '',
+        variants: variants.map(v => ({ title: v.title ?? '', text: v.text ?? '' })),
       }})
     } else {
       res.json({ success: true, data: { status: 'pending' } })

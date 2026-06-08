@@ -27,14 +27,27 @@ router.get('/', async (req, res, next) => {
     const safeSort  = ['created_at', 'title', 'play_count'].includes(sort as string) ? sort : 'created_at'
     const safeOrder = order === 'asc' ? 'ASC' : 'DESC'
 
-    let where = 'WHERE user_id = ?'
+    let where = 'WHERE t.user_id = ?'
     const params: unknown[] = [req.user!.id]
-    if (q)      { where += ' AND title LIKE ?';  params.push(`%${q}%`) }
-    if (genre)  { where += ' AND genre = ?';     params.push(genre) }
-    if (status) { where += ' AND status = ?';    params.push(status) }
+    if (q)      { where += ' AND t.title LIKE ?';  params.push(`%${q}%`) }
+    if (genre)  { where += ' AND t.genre = ?';     params.push(genre) }
+    if (status) { where += ' AND t.status = ?';    params.push(status) }
 
-    const [items]  = await pool.query(`SELECT * FROM tracks ${where} ORDER BY ${safeSort} ${safeOrder} LIMIT ? OFFSET ?`, [...params, Number(limit), offset])
-    const [[count]] = await pool.query(`SELECT COUNT(*) as total FROM tracks ${where}`, params) as unknown[][]
+    const [items]  = await pool.query(
+      `SELECT t.id, t.user_id, t.title, t.prompt, t.genre, t.mood, t.bpm,
+              COALESCE(
+                (SELECT tv.duration FROM track_versions tv
+                 WHERE tv.track_id = t.id AND tv.duration IS NOT NULL
+                 ORDER BY tv.version_num ASC LIMIT 1),
+                t.duration
+              ) AS duration,
+              t.status, t.suno_task_id, t.audio_url, t.cover_url,
+              t.is_public, t.play_count, t.like_count, t.created_at, t.updated_at
+       FROM tracks t ${where}
+       ORDER BY t.${safeSort} ${safeOrder} LIMIT ? OFFSET ?`,
+      [...params, Number(limit), offset]
+    )
+    const [[count]] = await pool.query(`SELECT COUNT(*) as total FROM tracks t ${where}`, params) as unknown[][]
     const total = (count as Record<string, unknown>).total as number
 
     res.json({ success: true, data: { items, pagination: { page: Number(page), limit: Number(limit), total, totalPages: Math.ceil(total / Number(limit)) } } })

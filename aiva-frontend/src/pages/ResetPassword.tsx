@@ -1,35 +1,37 @@
 import React, { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '../components/common/Button'
-import { postResetPassword } from '../api/auth/postResetPassword'
+import { usePostResetPassword } from '../hooks/mutations/usePostResetPassword'
 
 const ResetPassword: React.FC = () => {
   const navigate       = useNavigate()
   const [searchParams] = useSearchParams()
   const token          = searchParams.get('token') ?? ''
 
-  const [pw, setPw]           = useState('')
-  const [pw2, setPw2]         = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState('')
-  const [done, setDone]       = useState(false)
+  const [pw, setPw]   = useState('')
+  const [pw2, setPw2] = useState('')
+  const [done, setDone] = useState(false)
+  const [error, setError] = useState('')
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const { mutate: resetPassword, isPending } = usePostResetPassword()
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (pw.length < 8) { setError('비밀번호는 8자 이상이어야 합니다.'); return }
     if (pw !== pw2)    { setError('비밀번호가 일치하지 않습니다.'); return }
     setError('')
-    setLoading(true)
-    try {
-      await postResetPassword({ token, newPassword: pw })
-      setDone(true)
-      setTimeout(() => navigate('/login'), 3000)
-    } catch (err: unknown) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setError((err as any)?.response?.data?.error ?? '비밀번호 재설정에 실패했습니다.')
-    } finally {
-      setLoading(false)
-    }
+    resetPassword(
+      { token, newPassword: pw },
+      {
+        onSuccess: () => {
+          setDone(true)
+          setTimeout(() => navigate('/login'), 3000)
+        },
+        onError: (err) => {
+          setError(err.message || '비밀번호 재설정에 실패했습니다.')
+        },
+      },
+    )
   }
 
   return (
@@ -81,8 +83,8 @@ const ResetPassword: React.FC = () => {
                 {error && (
                   <div className="bg-red-900/30 border border-red-700/40 rounded-xl p-3 text-sm text-red-300">{error}</div>
                 )}
-                <Button type="submit" variant="primary" size="md" fullWidth disabled={loading || !token}>
-                  {loading ? '변경 중...' : '비밀번호 변경'}
+                <Button type="submit" variant="primary" size="md" fullWidth disabled={isPending || !token}>
+                  {isPending ? '변경 중...' : '비밀번호 변경'}
                 </Button>
               </form>
             </>

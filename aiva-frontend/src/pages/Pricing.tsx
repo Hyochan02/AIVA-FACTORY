@@ -1,15 +1,13 @@
 import { Check, X } from 'lucide-react'
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/common/Button'
 import { Badge } from '../components/common/Badge'
-import { getPlans } from '../api/subscriptions/getPlans'
-import { getCurrentSubscription } from '../api/subscriptions/getCurrentSubscription'
-import { subscribePlan } from '../api/subscriptions/subscribePlan'
-import type { Plan } from '../types/subscription'
+import { useGetPlans } from '../hooks/queries/useGetPlans'
+import { useGetCurrentSubscription } from '../hooks/queries/useGetCurrentSubscription'
+import { useSubscribePlan } from '../hooks/mutations/useSubscribePlan'
 import { useAuthStore } from '../stores/authStore'
 
-// 플랜별 미보유 기능 (UI 전용)
 const PLAN_MISSING: Record<string, string[]> = {
   free:       ['WAV/스템 다운로드', '상업적 이용', '무제한 생성', '우선 처리'],
   pro:        ['무제한 API 접근'],
@@ -23,32 +21,20 @@ const PLAN_CTA: Record<string, string> = {
 }
 
 const Pricing: React.FC = () => {
-  const navigate           = useNavigate()
-  const user        = useAuthStore((s) => s.user)
-  const refreshUser = useAuthStore((s) => s.refreshUser)
-  const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly')
-  const [plans, setPlans]     = useState<Plan[]>([])
-  const [currentPlan, setCurrentPlan] = useState<string>(user?.plan ?? 'free')
-  const [plansLoading, setPlansLoading] = useState(true)
+  const navigate      = useNavigate()
+  const user          = useAuthStore((s) => s.user)
+  const refreshUser   = useAuthStore((s) => s.refreshUser)
+
+  const [billing, setBilling]         = useState<'monthly' | 'yearly'>('monthly')
   const [showModal, setShowModal]     = useState(false)
   const [selectedPlan, setSelectedPlan] = useState('')
-  const [subscribing, setSubscribing]   = useState(false)
-  const [subError, setSubError]         = useState('')
+  const [subError, setSubError]       = useState('')
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [plansRes, subRes] = await Promise.all([
-          getPlans() as Promise<any>, // eslint-disable-line @typescript-eslint/no-explicit-any
-          user ? getCurrentSubscription() as Promise<any> : Promise.resolve(null), // eslint-disable-line @typescript-eslint/no-explicit-any
-        ])
-        if (plansRes.data) setPlans(plansRes.data)
-        if (subRes?.data?.plan) setCurrentPlan(subRes.data.plan)
-      } catch { /* 기본값 유지 */ }
-      finally { setPlansLoading(false) }
-    }
-    load()
-  }, [user])
+  const { data: plans = [], isLoading: plansLoading } = useGetPlans()
+  const { data: subData } = useGetCurrentSubscription(!!user)
+  const { mutate: subscribe, isPending: subscribing } = useSubscribePlan()
+
+  const currentPlan = subData?.plan ?? user?.plan ?? 'free'
 
   const handleSelect = (planId: string) => {
     if (planId === 'free' || planId === currentPlan) return
@@ -59,20 +45,21 @@ const Pricing: React.FC = () => {
     setShowModal(true)
   }
 
-  const handleSubscribe = async () => {
-    setSubscribing(true)
+  const handleSubscribe = () => {
     setSubError('')
-    try {
-      await subscribePlan({ planId: selectedPlan, billing })
-      await refreshUser()
-      setCurrentPlan(selectedPlan)
-      setShowModal(false)
-      navigate('/dashboard')
-    } catch (e: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
-      setSubError(e?.response?.data?.error ?? '구독 처리 중 오류가 발생했습니다.')
-    } finally {
-      setSubscribing(false)
-    }
+    subscribe(
+      { planId: selectedPlan, billing },
+      {
+        onSuccess: async () => {
+          await refreshUser()
+          setShowModal(false)
+          navigate('/dashboard')
+        },
+        onError: (e) => {
+          setSubError(e.message || '구독 처리 중 오류가 발생했습니다.')
+        },
+      },
+    )
   }
 
   const getCtaVariant = (planId: string): 'primary' | 'secondary' | 'ghost' => {
@@ -83,7 +70,6 @@ const Pricing: React.FC = () => {
 
   return (
     <div className="max-w-5xl mx-auto space-y-10">
-      {/* 헤더 */}
       <div className="text-center">
         <h1 className="text-3xl font-black text-white mb-2">심플한 요금제</h1>
         <p className="text-slate-400">처음엔 무료로, 필요할 때 업그레이드하세요.</p>
@@ -97,7 +83,6 @@ const Pricing: React.FC = () => {
         </div>
       </div>
 
-      {/* 플랜 카드 */}
       {plansLoading ? (
         <div className="grid md:grid-cols-3 gap-5">
           {[1,2,3].map(i => <div key={i} className="h-80 bg-[#0d1340] border border-(--border-color) rounded-2xl animate-pulse" />)}
@@ -153,7 +138,6 @@ const Pricing: React.FC = () => {
         </div>
       )}
 
-      {/* 비교표 */}
       <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl overflow-hidden">
         <div className="p-5 border-b border-(--border-color)">
           <h2 className="font-bold text-white">상세 비교</h2>
@@ -189,7 +173,6 @@ const Pricing: React.FC = () => {
         </div>
       </div>
 
-      {/* 결제 모달 */}
       {showModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-8 max-w-sm w-full space-y-5 shadow-2xl">

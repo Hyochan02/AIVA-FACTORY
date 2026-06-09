@@ -1,16 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/common/Button'
 import { Badge } from '../components/common/Badge'
 import { Toggle } from '../components/common/Toggle'
 import { useAuthStore } from '../stores/authStore'
-import { putMe } from '../api/auth/putMe'
-import { putPassword } from '../api/auth/putPassword'
-import { getNotificationSettings } from '../api/notifications/getNotificationSettings'
-import { updateNotificationSettings } from '../api/notifications/updateNotificationSettings'
+import { usePutMe } from '../hooks/mutations/usePutMe'
+import { usePutPassword } from '../hooks/mutations/usePutPassword'
+import { useUpdateNotificationSettings } from '../hooks/mutations/useUpdateNotificationSettings'
+import { useGetNotificationSettings } from '../hooks/queries/useGetNotificationSettings'
+import { useGetCredits } from '../hooks/queries/useGetCredits'
+import { useGetCurrentSubscription } from '../hooks/queries/useGetCurrentSubscription'
 import type { NotificationSettings } from '../types/notification'
-import { getCredits } from '../api/credits/getCredits'
-import { getCurrentSubscription } from '../api/subscriptions/getCurrentSubscription'
 
 type Tab = 'account' | 'notification' | 'security' | 'subscription'
 
@@ -22,141 +22,107 @@ const TABS: { id: Tab; label: string }[] = [
 ]
 
 const NOTIFICATION_META = [
-  { id: 'gen'       as const, label: '생성 완료 알림',   desc: '트랙 생성이 완료되면 알립니다' },
-  { id: 'credit'    as const, label: '크레딧 부족 알림',  desc: '크레딧이 20개 미만이면 알립니다' },
-  { id: 'like'      as const, label: '커뮤니티 좋아요',   desc: '내 트랙에 좋아요가 달리면 알립니다' },
-  { id: 'follow'    as const, label: '새 팔로워',         desc: '누군가 나를 팔로우하면 알립니다' },
-  { id: 'marketing' as const, label: '마케팅 이메일',     desc: 'AIVA의 새 기능 및 혜택 소식' },
+  { id: 'gen'       as const, label: '생성 완료 알림',  desc: '트랙 생성이 완료되면 알립니다' },
+  { id: 'credit'    as const, label: '크레딧 부족 알림', desc: '크레딧이 20개 미만이면 알립니다' },
+  { id: 'like'      as const, label: '커뮤니티 좋아요',  desc: '내 트랙에 좋아요가 달리면 알립니다' },
+  { id: 'follow'    as const, label: '새 팔로워',        desc: '누군가 나를 팔로우하면 알립니다' },
+  { id: 'marketing' as const, label: '마케팅 이메일',    desc: 'AIVA의 새 기능 및 혜택 소식' },
 ]
 
 const Profile: React.FC = () => {
   const user        = useAuthStore((s) => s.user)
   const refreshUser = useAuthStore((s) => s.refreshUser)
-  const navigate              = useNavigate()
-  const [tab, setTab]         = useState<Tab>('account')
+  const navigate    = useNavigate()
+  const [tab, setTab] = useState<Tab>('account')
 
   // ── 계정 정보 ───────────────────────────────────────────
-  const [name, setName]       = useState(user?.name ?? '')
-  const [saving, setSaving]   = useState(false)
+  const [name, setName]   = useState(user?.name ?? '')
   const [saveMsg, setSaveMsg] = useState('')
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (user?.name) setName(user.name)
   }, [user?.name])
 
-  const handleSave = async () => {
-    setSaving(true)
+  const { mutate: putMe, isPending: saving } = usePutMe()
+
+  const handleSave = () => {
     setSaveMsg('')
-    try {
-      await putMe({ name })
-      await refreshUser()
-      setSaveMsg('저장됨')
-      setTimeout(() => setSaveMsg(''), 2000)
-    } catch (e) {
-      setSaveMsg(e instanceof Error ? e.message : '저장 실패')
-    } finally {
-      setSaving(false)
-    }
+    putMe({ name }, {
+      onSuccess: async () => {
+        await refreshUser()
+        setSaveMsg('저장됨')
+        setTimeout(() => setSaveMsg(''), 2000)
+      },
+      onError: (e) => setSaveMsg(e.message || '저장 실패'),
+    })
   }
 
-  // ── 알림 설정 (API 연동) ────────────────────────────────
+  // ── 알림 설정 ────────────────────────────────────────────
   const [notifSettings, setNotifSettings] = useState<NotificationSettings>({
     gen: true, credit: true, like: false, follow: false, marketing: false,
   })
-  const [notifLoading, setNotifLoading] = useState(false)
-  const [notifMsg, setNotifMsg]         = useState('')
+  const [notifMsg, setNotifMsg] = useState('')
 
-  const loadNotifications = useCallback(async () => {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const res = await getNotificationSettings() as any
-      if (res.data) setNotifSettings(res.data)
-    } catch { /* 기본값 유지 */ }
-  }, [])
+  const { data: notifData } = useGetNotificationSettings()
+  const { mutate: updateNotif, isPending: notifLoading } = useUpdateNotificationSettings()
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (tab === 'notification') loadNotifications()
-  }, [tab, loadNotifications])
+    if (notifData) setNotifSettings(notifData)
+  }, [notifData])
 
-  const handleToggleNotification = async (id: keyof NotificationSettings) => {
+  const handleToggleNotification = (id: keyof NotificationSettings) => {
     const updated = { ...notifSettings, [id]: !notifSettings[id] }
     setNotifSettings(updated)
-    setNotifLoading(true)
-    try {
-      await updateNotificationSettings({ [id]: updated[id] })
-      setNotifMsg('저장됨')
-      setTimeout(() => setNotifMsg(''), 1500)
-    } catch {
-      // 실패 시 롤백
-      setNotifSettings(prev => ({ ...prev, [id]: !updated[id] }))
-      setNotifMsg('저장 실패')
-    } finally {
-      setNotifLoading(false)
-    }
+    updateNotif({ [id]: updated[id] }, {
+      onSuccess: () => {
+        setNotifMsg('저장됨')
+        setTimeout(() => setNotifMsg(''), 1500)
+      },
+      onError: () => {
+        setNotifSettings(prev => ({ ...prev, [id]: !updated[id] }))
+        setNotifMsg('저장 실패')
+      },
+    })
   }
 
   // ── 비밀번호 변경 ────────────────────────────────────────
   const [currentPw, setCurrentPw] = useState('')
   const [newPw, setNewPw]         = useState('')
   const [confirmPw, setConfirmPw] = useState('')
-  const [pwLoading, setPwLoading] = useState(false)
   const [pwMsg, setPwMsg]         = useState('')
   const [pwError, setPwError]     = useState('')
 
-  const handleChangePassword = async () => {
+  const { mutate: changePassword, isPending: pwLoading } = usePutPassword()
+
+  const handleChangePassword = () => {
     setPwError(''); setPwMsg('')
     if (newPw !== confirmPw) { setPwError('새 비밀번호가 일치하지 않습니다.'); return }
     if (newPw.length < 8)   { setPwError('비밀번호는 8자 이상이어야 합니다.'); return }
-    setPwLoading(true)
-    try {
-      await putPassword({ currentPassword: currentPw, newPassword: newPw })
-      setPwMsg('비밀번호가 변경되었습니다.')
-      setCurrentPw(''); setNewPw(''); setConfirmPw('')
-      setTimeout(() => setPwMsg(''), 3000)
-    } catch (e) {
-      setPwError(e instanceof Error ? e.message : '비밀번호 변경 실패')
-    } finally {
-      setPwLoading(false)
-    }
+    changePassword({ currentPassword: currentPw, newPassword: newPw }, {
+      onSuccess: () => {
+        setPwMsg('비밀번호가 변경되었습니다.')
+        setCurrentPw(''); setNewPw(''); setConfirmPw('')
+        setTimeout(() => setPwMsg(''), 3000)
+      },
+      onError: (e) => setPwError(e.message || '비밀번호 변경 실패'),
+    })
   }
 
-  // ── 구독 / 크레딧 (API 연동) ─────────────────────────────
-  const [creditBalance, setCreditBalance]   = useState<number>(user?.credits ?? 0)
-  const [monthlyGrant, setMonthlyGrant]     = useState<number>(100)
-  const [subPeriodEnd, setSubPeriodEnd]     = useState<string | null>(null)
-  const [subLoading, setSubLoading]         = useState(false)
+  // ── 구독 / 크레딧 ─────────────────────────────────────────
+  const { data: creditData, isLoading: creditLoading } = useGetCredits()
+  const { data: subData, isLoading: subLoading } = useGetCurrentSubscription()
 
-  const loadSubscription = useCallback(async () => {
-    setSubLoading(true)
-    try {
-      const [creditRes, subRes] = await Promise.all([
-        getCredits() as Promise<any>, // eslint-disable-line @typescript-eslint/no-explicit-any
-        getCurrentSubscription() as Promise<any>, // eslint-disable-line @typescript-eslint/no-explicit-any
-      ])
-      if (creditRes.data) {
-        setCreditBalance(creditRes.data.balance ?? 0)
-        setMonthlyGrant(creditRes.data.monthlyGrant ?? 100)
-      }
-      if (subRes.data?.currentPeriodEnd) {
-        setSubPeriodEnd(new Date(subRes.data.currentPeriodEnd).toLocaleDateString('ko-KR'))
-      }
-    } catch { /* 기본값 유지 */ }
-    finally { setSubLoading(false) }
-  }, [])
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (tab === 'subscription') loadSubscription()
-  }, [tab, loadSubscription])
+  const creditBalance = creditData?.balance ?? user?.credits ?? 0
+  const monthlyGrant  = creditData?.monthlyGrant ?? 100
+  const subPeriodEnd  = subData?.currentPeriodEnd
+    ? new Date(subData.currentPeriodEnd).toLocaleDateString('ko-KR')
+    : null
 
   const planLabel = user?.plan === 'pro' ? 'Pro 플랜' : user?.plan === 'enterprise' ? 'Enterprise' : 'Free 플랜'
   const initial   = (user?.name ?? 'U')[0].toUpperCase()
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* ── 프로필 헤더 ───────────────────────────────────── */}
       <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6 flex items-center gap-5">
         <div className="w-16 h-16 rounded-2xl bg-linear-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white text-2xl font-black shadow-lg shadow-indigo-900/50">
           {initial}
@@ -172,7 +138,6 @@ const Profile: React.FC = () => {
         </div>
       </div>
 
-      {/* ── 탭 ───────────────────────────────────────────── */}
       <div className="flex gap-1 bg-[#0d1340] border border-(--border-color) rounded-xl p-1">
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
@@ -182,7 +147,6 @@ const Profile: React.FC = () => {
         ))}
       </div>
 
-      {/* ── 계정 정보 탭 ─────────────────────────────────── */}
       {tab === 'account' && (
         <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6 space-y-5">
           <h2 className="font-bold text-white">계정 정보</h2>
@@ -215,7 +179,6 @@ const Profile: React.FC = () => {
         </div>
       )}
 
-      {/* ── 알림 설정 탭 (API 연동) ──────────────────────── */}
       {tab === 'notification' && (
         <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6 space-y-4">
           <div className="flex items-center justify-between">
@@ -238,14 +201,13 @@ const Profile: React.FC = () => {
         </div>
       )}
 
-      {/* ── 보안 탭 ──────────────────────────────────────── */}
       {tab === 'security' && (
         <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6 space-y-5">
           <h2 className="font-bold text-white">보안 설정</h2>
           <div className="space-y-3">
             {[
-              { label: '현재 비밀번호', val: currentPw, set: setCurrentPw },
-              { label: '새 비밀번호',   val: newPw,    set: setNewPw      },
+              { label: '현재 비밀번호',   val: currentPw, set: setCurrentPw },
+              { label: '새 비밀번호',     val: newPw,     set: setNewPw     },
               { label: '새 비밀번호 확인', val: confirmPw, set: setConfirmPw },
             ].map(f => (
               <div key={f.label}>
@@ -272,12 +234,11 @@ const Profile: React.FC = () => {
         </div>
       )}
 
-      {/* ── 구독 탭 (API 연동) ───────────────────────────── */}
       {tab === 'subscription' && (
         <div className="space-y-4">
           <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6 space-y-4">
             <h2 className="font-bold text-white">현재 구독</h2>
-            {subLoading ? (
+            {subLoading || creditLoading ? (
               <div className="h-12 bg-slate-800/50 rounded-xl animate-pulse" />
             ) : (
               <div className="flex items-center justify-between p-4 rounded-xl bg-[#080c2a] border border-(--border-color)">

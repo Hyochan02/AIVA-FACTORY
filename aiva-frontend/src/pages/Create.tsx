@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "../components/common/Button";
 import { Toggle } from "../components/common/Toggle";
-import { startGenerate } from "../api/generate/startGenerate";
+import { useStartGenerate } from "../hooks/mutations/useStartGenerate";
 
 const GENRES = [
   "Lo-Fi",
@@ -54,8 +54,9 @@ const Create: React.FC = () => {
   const [instrumental, setInstrumental] = useState(false);
   const [isPublic, setIsPublic] = useState(true);
   const [title, setTitle] = useState("");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const { mutate: generate, isPending } = useStartGenerate();
 
   const toggleArr = <T,>(
     setArr: React.Dispatch<React.SetStateAction<T[]>>,
@@ -63,15 +64,14 @@ const Create: React.FC = () => {
   ) =>
     setArr((p) => (p.includes(val) ? p.filter((x) => x !== val) : [...p, val]));
 
-  const handleGenerate = async () => {
+  const handleGenerate = () => {
     if (!prompt.trim()) {
       setError("프롬프트를 입력해주세요.");
       return;
     }
     setError("");
-    setLoading(true);
-    try {
-      const res = (await startGenerate({
+    generate(
+      {
         prompt,
         genre: selectedGenres[0],
         mood: selectedMood || undefined,
@@ -80,19 +80,20 @@ const Create: React.FC = () => {
         instrumental,
         title: title.trim() || undefined,
         isPublic,
-      })) as { data: { trackId: string } };
-      navigate(`/generating?trackId=${res.data.trackId}`);
-    } catch (err: unknown) {
-      setError(
-        err instanceof Error ? err.message : "생성 요청에 실패했습니다.",
-      );
-      setLoading(false);
-    }
+      },
+      {
+        onSuccess: (data) => {
+          navigate(`/generating?trackId=${data.trackId}`);
+        },
+        onError: (err) => {
+          setError(err.message || "생성 요청에 실패했습니다.");
+        },
+      },
+    );
   };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* 제목 (선택) */}
       <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-6">
         <label className="block text-sm font-bold text-white mb-3">
           트랙 제목
@@ -109,7 +110,6 @@ const Create: React.FC = () => {
         />
       </div>
 
-      {/* 프롬프트 */}
       <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-6">
         <label className="block text-sm font-bold text-white mb-3">
           어떤 음악을 만들고 싶으세요?{" "}
@@ -124,9 +124,7 @@ const Create: React.FC = () => {
           className="w-full bg-[#080c2a] border border-primary-soft rounded-[12px] px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors resize-none"
         />
         <div className="flex justify-between items-center mt-2">
-          <span className="text-xs text-slate-500">
-            {prompt.length} / 500자
-          </span>
+          <span className="text-xs text-slate-500">{prompt.length} / 500자</span>
           <button
             className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
             onClick={() => setPrompt(EXAMPLE_PROMPT)}
@@ -137,7 +135,6 @@ const Create: React.FC = () => {
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
-        {/* 장르 */}
         <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-6">
           <h3 className="text-sm font-bold text-white mb-4">
             장르{" "}
@@ -160,7 +157,6 @@ const Create: React.FC = () => {
           </div>
         </div>
 
-        {/* 분위기 */}
         <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-6">
           <h3 className="text-sm font-bold text-white mb-4">
             분위기{" "}
@@ -184,13 +180,10 @@ const Create: React.FC = () => {
         </div>
       </div>
 
-      {/* 악기 */}
       <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-6">
         <h3 className="text-sm font-bold text-white mb-4">
           악기{" "}
-          <span className="text-slate-500 font-normal text-xs">
-            (선택, 다중)
-          </span>
+          <span className="text-slate-500 font-normal text-xs">(선택, 다중)</span>
         </h3>
         <div className="flex flex-wrap gap-2">
           {INSTRUMENTS.map((i) => (
@@ -209,13 +202,10 @@ const Create: React.FC = () => {
         </div>
       </div>
 
-      {/* 반주 전용 */}
       <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-5">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-sm font-bold text-white">
-              반주 전용 (Instrumental)
-            </div>
+            <div className="text-sm font-bold text-white">반주 전용 (Instrumental)</div>
             <div className="text-xs text-slate-400 mt-0.5">
               보컬 없이 순수 악기 연주로만 생성합니다
             </div>
@@ -224,7 +214,6 @@ const Create: React.FC = () => {
         </div>
       </div>
 
-      {/* 공개 설정 */}
       <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-5">
         <div className="flex items-center justify-between">
           <div>
@@ -257,16 +246,14 @@ const Create: React.FC = () => {
       )}
 
       <div className="flex justify-end gap-3 pb-6">
-        <span className="text-xs text-slate-500 self-center">
-          크레딧 4개 소모
-        </span>
+        <span className="text-xs text-slate-500 self-center">크레딧 4개 소모</span>
         <Button
           variant="primary"
           size="lg"
           onClick={handleGenerate}
-          disabled={loading || !prompt.trim()}
+          disabled={isPending || !prompt.trim()}
         >
-          {loading ? "요청 중..." : "음악 생성하기"}
+          {isPending ? "요청 중..." : "음악 생성하기"}
         </Button>
       </div>
     </div>

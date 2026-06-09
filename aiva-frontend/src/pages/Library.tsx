@@ -4,17 +4,14 @@ import { useNavigate } from 'react-router-dom'
 import { Badge } from '../components/common/Badge'
 import { Button } from '../components/common/Button'
 import { Waveform } from '../components/common/Waveform'
-import { useApi } from '../hooks/useApi'
-import { getTracks } from '../api/tracks/getTracks'
-import { patchTrack } from '../api/tracks/patchTrack'
+import { useGetTracks } from '../hooks/queries/useGetTracks'
+import { usePatchTrack } from '../hooks/mutations/usePatchTrack'
 import { formatDuration, gradColor } from '../utils/format'
 import type { Track } from '../types/track'
-import type { PaginatedResponse } from '../types/api'
 
 const FILTERS = ['전체', 'Lo-Fi', 'City Pop', 'Ambient', 'Synthwave', 'K-Pop', 'EDM', 'Jazz', 'Acoustic', 'Hip-Hop', 'Classical', 'R&B', 'Drum & Bass']
 type ViewMode = 'grid' | 'list'
 
-// ── 스켈레톤 ─────────────────────────────────────────────
 const GridSkeleton = () => (
   <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl overflow-hidden animate-pulse">
     <div className="h-32 bg-navy-700" />
@@ -30,45 +27,36 @@ const GridSkeleton = () => (
 
 const Library: React.FC = () => {
   const navigate = useNavigate()
-  const [togglingId, setTogglingId] = useState<string | null>(null)
-
-  const handleVisibilityToggle = async (e: React.MouseEvent, track: Track) => {
-    e.stopPropagation()
-    if (togglingId) return
-    setTogglingId(track.id)
-    try {
-      // DB는 is_public (0/1), 타입 캐스팅 필요
-      const currentPublic = !!(track as Track & { is_public?: number }).is_public
-      await patchTrack(track.id, { isPublic: !currentPublic })
-      await refetch()
-    } catch {
-      // 실패해도 조용히 처리
-    } finally {
-      setTogglingId(null)
-    }
-  }
 
   const [view, setView]     = useState<ViewMode>('grid')
   const [filter, setFilter] = useState('전체')
   const [search, setSearch] = useState('')
 
-  // ── API 호출: 로컬 필터링이 아닌 서버 쿼리 ──────────────
-  // Best Practice: 클라이언트 필터링 대신 서버 쿼리로 처리하면
-  // 데이터가 많아져도 성능에 영향을 주지 않습니다.
-  const queryGenre = filter === '전체' ? undefined : filter
+  const queryGenre  = filter === '전체' ? undefined : filter
   const querySearch = search.trim() || undefined
 
-  const { data, loading, error, refetch } = useApi<PaginatedResponse<Track>>(
-    () => getTracks({ genre: queryGenre, q: querySearch }),
-    [filter, search]
-  )
+  const { data, isLoading: loading, isError, refetch } = useGetTracks({ genre: queryGenre, q: querySearch })
+  const { mutate: patchTrackMutate, isPending: togglingAny } = usePatchTrack()
+  const [togglingId, setTogglingId] = useState<string | null>(null)
 
   const tracks: Track[] = data?.items ?? []
   const total           = data?.pagination?.total ?? 0
 
+  const handleVisibilityToggle = (e: React.MouseEvent, track: Track) => {
+    e.stopPropagation()
+    if (togglingId) return
+    const currentPublic = !!(track as Track & { is_public?: number }).is_public
+    setTogglingId(track.id)
+    patchTrackMutate(
+      { id: track.id, data: { isPublic: !currentPublic } },
+      {
+        onSettled: () => setTogglingId(null),
+      },
+    )
+  }
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      {/* ── 헤더 ─────────────────────────────────────────── */}
       <div className="flex items-center gap-4 flex-wrap">
         <input value={search} onChange={e => setSearch(e.target.value)}
           placeholder="트랙 검색..."
@@ -78,16 +66,12 @@ const Library: React.FC = () => {
           {(['grid','list'] as ViewMode[]).map(v => (
             <button key={v} onClick={() => setView(v)}
               className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${view === v ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}>
-              {v === 'grid'
-                ? <LayoutGrid size={14} />
-                : <List size={14} />
-              }
+              {v === 'grid' ? <LayoutGrid size={14} /> : <List size={14} />}
             </button>
           ))}
         </div>
       </div>
 
-      {/* ── 필터 탭 ──────────────────────────────────────── */}
       <div className="flex gap-2 flex-wrap items-center">
         {FILTERS.map(f => (
           <button key={f} onClick={() => setFilter(f)}
@@ -95,21 +79,17 @@ const Library: React.FC = () => {
             {f}
           </button>
         ))}
-        {!loading && (
-          <span className="px-3 py-1.5 text-xs text-slate-500">{total}개</span>
-        )}
+        {!loading && <span className="px-3 py-1.5 text-xs text-slate-500">{total}개</span>}
       </div>
 
-      {/* ── 에러 상태 ────────────────────────────────────── */}
-      {error && (
+      {isError && (
         <div className="text-center py-8">
-          <p className="text-sm text-red-400 mb-3">{error}</p>
-          <Button variant="secondary" size="sm" onClick={refetch}>다시 시도</Button>
+          <p className="text-sm text-red-400 mb-3">데이터를 불러오지 못했습니다.</p>
+          <Button variant="secondary" size="sm" onClick={() => refetch()}>다시 시도</Button>
         </div>
       )}
 
-      {/* ── 빈 상태 ──────────────────────────────────────── */}
-      {!loading && !error && tracks.length === 0 && (
+      {!loading && !isError && tracks.length === 0 && (
         <div className="text-center py-16">
           <Music2 size={40} className="mx-auto mb-3 text-slate-600" />
           <p className="text-slate-400 mb-2">
@@ -123,7 +103,6 @@ const Library: React.FC = () => {
         </div>
       )}
 
-      {/* ── 그리드 뷰 ────────────────────────────────────── */}
       {view === 'grid' && (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {loading
@@ -151,7 +130,7 @@ const Library: React.FC = () => {
                       <Badge variant="info">{t.genre}</Badge>
                       <button
                         onClick={e => handleVisibilityToggle(e, t)}
-                        disabled={togglingId === t.id}
+                        disabled={togglingId === t.id || togglingAny}
                         className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
                           (t as Track & { is_public?: number }).is_public
                             ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/30'
@@ -172,7 +151,6 @@ const Library: React.FC = () => {
         </div>
       )}
 
-      {/* ── 리스트 뷰 ────────────────────────────────────── */}
       {view === 'list' && (
         <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl overflow-hidden">
           {loading
@@ -199,7 +177,7 @@ const Library: React.FC = () => {
                       <span className="text-xs text-slate-400">{t.genre}</span>
                       <button
                         onClick={e => handleVisibilityToggle(e, t)}
-                        disabled={togglingId === t.id}
+                        disabled={togglingId === t.id || togglingAny}
                         className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold border transition-all ${
                           (t as Track & { is_public?: number }).is_public
                             ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'

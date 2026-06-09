@@ -1,8 +1,8 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Music2, CheckCircle2, XCircle, Piano } from "lucide-react";
-import { pollStatus } from "../api/generate/pollStatus";
-import type { StatusResponse, TrackVersion } from "../types/generate";
+import { usePollStatus } from "../hooks/queries/usePollStatus";
+import type { TrackVersion } from "../types/generate";
 import { Button } from "../components/common/Button";
 
 const STEP_LABELS: Record<string, string> = {
@@ -15,43 +15,16 @@ const STEP_LABELS: Record<string, string> = {
 const Generating: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const trackId = searchParams.get("trackId");
+  const trackId = searchParams.get("trackId") ?? "";
 
-  const [status, setStatus] = useState<StatusResponse | null>(null);
-  const [error, setError] = useState("");
   const [picked, setPicked] = useState<TrackVersion | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    if (!trackId) {
-      navigate("/create");
-      return;
-    }
+  if (!trackId) {
+    navigate("/create");
+  }
 
-    const poll = async () => {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const res = (await pollStatus(trackId)) as any;
-        const data: StatusResponse = res.data;
-        setStatus(data);
+  const { data: status, isError: fetchError } = usePollStatus(trackId, !!trackId);
 
-        if (data.status === "done" || data.status === "error") {
-          if (intervalRef.current) clearInterval(intervalRef.current);
-        }
-      } catch {
-        setError("상태 확인 중 오류가 발생했습니다.");
-        if (intervalRef.current) clearInterval(intervalRef.current);
-      }
-    };
-
-    poll();
-    intervalRef.current = setInterval(poll, 3000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [trackId, navigate]);
-
-  // 버전 선택 후 플레이어로 이동
   const goToPlayer = (version?: TrackVersion) => {
     const vNum = version?.version_num ?? 1;
     navigate(`/player/${trackId}?v=${vNum}`);
@@ -59,12 +32,11 @@ const Generating: React.FC = () => {
 
   const progress = status?.progress ?? 0;
   const isDone = status?.status === "done";
-  const isError = status?.status === "error";
+  const isError = status?.status === "error" || fetchError;
   const versions = status?.versions ?? [];
 
   return (
     <div className="max-w-lg mx-auto text-center space-y-10 py-8">
-      {/* 애니메이션 아이콘 */}
       <div className="relative w-32 h-32 mx-auto">
         {!isDone && !isError && (
           <div className="absolute inset-0 rounded-full bg-indigo-600/20 animate-ping" />
@@ -91,7 +63,6 @@ const Generating: React.FC = () => {
         </div>
       </div>
 
-      {/* 제목 & 설명 */}
       <div>
         <h1 className="text-2xl font-black text-white mb-2">
           {isDone
@@ -104,12 +75,11 @@ const Generating: React.FC = () => {
           {isDone
             ? "버전을 선택해 플레이어에서 감상하세요"
             : isError
-              ? error || "잠시 후 다시 시도해주세요"
+              ? "잠시 후 다시 시도해주세요"
               : (status?.step ?? "잠시만 기다려주세요. 약 30초 소요됩니다.")}
         </p>
       </div>
 
-      {/* 진행 바 */}
       {!isDone && !isError && (
         <div className="space-y-2">
           <div className="flex justify-between text-xs text-slate-400">
@@ -127,7 +97,6 @@ const Generating: React.FC = () => {
         </div>
       )}
 
-      {/* 완료: 버전 선택 */}
       {isDone && versions.length > 0 && (
         <div className="space-y-4">
           <div className="text-sm font-bold text-white">버전을 선택하세요</div>
@@ -181,19 +150,12 @@ const Generating: React.FC = () => {
         </div>
       )}
 
-      {/* 완료인데 버전이 없는 경우 (개발 모드) */}
       {isDone && versions.length === 0 && (
-        <Button
-          variant="primary"
-          size="lg"
-          fullWidth
-          onClick={() => goToPlayer()}
-        >
+        <Button variant="primary" size="lg" fullWidth onClick={() => goToPlayer()}>
           플레이어로 이동 →
         </Button>
       )}
 
-      {/* 오류 상태 */}
       {isError && (
         <div className="flex flex-col gap-3">
           <Button
@@ -207,7 +169,6 @@ const Generating: React.FC = () => {
         </div>
       )}
 
-      {/* 생성 중 안내 */}
       {!isDone && !isError && (
         <div className="flex flex-col items-center gap-3">
           <div className="flex gap-2 text-xs text-slate-500">

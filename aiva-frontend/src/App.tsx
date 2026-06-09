@@ -1,7 +1,17 @@
 import React, { useEffect, type ReactNode } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useAuthStore } from './stores/authStore'
 import { AppLayout } from './components/layout/AppLayout'
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 1000 * 30,
+    },
+  },
+})
 
 const Landing        = React.lazy(() => import('./pages/Landing'))
 const Login          = React.lazy(() => import('./pages/Login'))
@@ -73,11 +83,13 @@ function AppRoutes() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <AuthInit>
-        <AppRoutes />
-      </AuthInit>
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <AuthInit>
+          <AppRoutes />
+        </AuthInit>
+      </BrowserRouter>
+    </QueryClientProvider>
   )
 }
 

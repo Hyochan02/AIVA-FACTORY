@@ -1,37 +1,30 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '../components/common/Button'
-import { postForgotPassword } from '../api/auth/postForgotPassword'
+import { usePostForgotPassword } from '../hooks/mutations/usePostForgotPassword'
 
 const ForgotPassword: React.FC = () => {
-  const [email, setEmail]         = useState('')
-  const [sent, setSent]           = useState(false)
-  const [loading, setLoading]     = useState(false)
-  const [error, setError]         = useState('')
-  const [devToken, setDevToken]   = useState('')  // 개발 환경 전용
+  const [email, setEmail]       = useState('')
+  const [sent, setSent]         = useState(false)
+  const [devToken, setDevToken] = useState('')
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const { mutate: forgotPassword, isPending } = usePostForgotPassword()
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email.trim()) { setError('이메일을 입력해주세요.'); return }
-    setError('')
-    setLoading(true)
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const res = await postForgotPassword(email) as any
-      setSent(true)
-      if (res.data?._devToken) setDevToken(res.data._devToken)
-    } catch (err: unknown) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setError((err as any)?.response?.data?.error ?? '요청에 실패했습니다.')
-    } finally {
-      setLoading(false)
-    }
+    if (!email.trim()) return
+    forgotPassword(email, {
+      onSuccess: (data) => {
+        setSent(true)
+        const res = data as { _devToken?: string } | null
+        if (res?._devToken) setDevToken(res._devToken)
+      },
+    })
   }
 
   return (
     <div className="min-h-screen bg-[#080c2a] flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-8">
-        {/* 로고 */}
         <Link to="/" className="flex items-center justify-center gap-2 font-black text-lg text-white">
           <span className="w-9 h-9 rounded-lg bg-linear-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white font-black text-sm shadow-lg shadow-indigo-900/50">
             A
@@ -61,15 +54,8 @@ const ForgotPassword: React.FC = () => {
                     className="w-full bg-[#080c2a] border border-primary-soft rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
                   />
                 </div>
-
-                {error && (
-                  <div className="bg-red-900/30 border border-red-700/40 rounded-xl p-3 text-sm text-red-300">
-                    {error}
-                  </div>
-                )}
-
-                <Button type="submit" variant="primary" size="md" fullWidth disabled={loading}>
-                  {loading ? '전송 중...' : '재설정 링크 전송'}
+                <Button type="submit" variant="primary" size="md" fullWidth disabled={isPending || !email.trim()}>
+                  {isPending ? '전송 중...' : '재설정 링크 전송'}
                 </Button>
               </form>
             </>

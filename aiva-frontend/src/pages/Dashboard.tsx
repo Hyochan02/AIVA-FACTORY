@@ -4,18 +4,15 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../components/common/Button";
 import { Badge } from "../components/common/Badge";
 import { useAuthStore } from "../stores/authStore";
-import { useApi } from "../hooks/useApi";
-import { getStats } from "../api/stats/getStats";
-import { getTracks } from "../api/tracks/getTracks";
+import { useGetStats } from "../hooks/queries/useGetStats";
+import { useGetTracks } from "../hooks/queries/useGetTracks";
 import {
   formatDuration,
   formatPlays,
   formatDate,
   gradColor,
 } from "../utils/format";
-import type { DashboardStats } from "../types/stats";
 import type { Track } from "../types/track";
-import type { PaginatedResponse } from "../types/api";
 
 const QUICK_GENRES = [
   "Lo-Fi",
@@ -32,7 +29,6 @@ const QUICK_GENRES = [
   "Drum & Bass",
 ];
 
-// ── 로딩 스켈레톤 ─────────────────────────────────────────
 const StatSkeleton = () => (
   <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-5 animate-pulse">
     <div className="h-4 w-16 bg-navy-700 rounded mb-3" />
@@ -44,16 +40,14 @@ const StatSkeleton = () => (
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
-  // ── API 호출 ────────────────────────────────────────────
-  const { data: statsData, loading: statsLoading } = useApi<DashboardStats>(
-    () => getStats(),
-  );
 
-  const { data: tracksData, loading: tracksLoading } = useApi<
-    PaginatedResponse<Track>
-  >(() => getTracks({ limit: 1, sort: "createdAt", order: "desc" }));
+  const { data: statsData, isLoading: statsLoading } = useGetStats();
+  const { data: tracksData, isLoading: tracksLoading } = useGetTracks({
+    limit: 1,
+    sort: "createdAt",
+    order: "desc",
+  });
 
-  // ── 통계 카드 데이터 매핑 ────────────────────────────────
   const stats = statsData
     ? [
         {
@@ -88,7 +82,6 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
-      {/* ── 인사 ─────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black text-white">
@@ -115,7 +108,6 @@ const Dashboard: React.FC = () => {
         </Button>
       </div>
 
-      {/* ── 통계 카드 ────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statsLoading
           ? Array(4)
@@ -138,7 +130,6 @@ const Dashboard: React.FC = () => {
             ))}
       </div>
 
-      {/* ── 빠른 생성 ────────────────────────────────────── */}
       <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6">
         <h2 className="font-bold text-white mb-1">빠른 생성</h2>
         <p className="text-xs text-slate-400 mb-4">
@@ -158,7 +149,6 @@ const Dashboard: React.FC = () => {
       </div>
 
       <div className="grid lg:grid-cols-[1fr_340px] gap-6 items-stretch">
-        {/* ── 최근 트랙 ──────────────────────────────────── */}
         <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6 flex flex-col">
           <div className="flex items-center justify-between mb-5">
             <h2 className="font-bold text-white">최근 트랙</h2>
@@ -241,15 +231,12 @@ const Dashboard: React.FC = () => {
           )}
         </div>
 
-        {/* ── 사이드 위젯 ────────────────────────────────── */}
         <div className="flex flex-col gap-4 h-full">
           <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6 flex flex-col flex-1">
             <div className="flex items-center justify-between mb-5">
               <h2 className="font-bold text-white">크레딧 현황</h2>
             </div>
-            {/* 제목과 컨텐츠 사이 공간 */}
             <div className="flex-1" />
-            {/* 크레딧 정보 + 버튼 세트 */}
             <div>
               <div className="flex justify-between items-center text-sm mb-3">
                 <span className="text-slate-400">남은 크레딧</span>
@@ -277,7 +264,6 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* 가입일 */}
           {user?.createdAt && (
             <div className="text-xs text-slate-500 text-center">
               가입일 {formatDate(user.createdAt)}

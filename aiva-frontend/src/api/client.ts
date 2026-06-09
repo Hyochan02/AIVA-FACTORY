@@ -3,7 +3,9 @@
  * axios 대신 브라우저 내장 fetch 사용 → 추가 패키지 불필요
  */
 
-const BASE_URL = '/api'
+// 개발: VITE_API_BASE_URL 미설정 → '/api' (Vite proxy가 처리)
+// 프로덕션: VITE_API_BASE_URL=https://api.aiva-factory.p-e.kr → 직접 호출
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '') + '/api'
 
 const authHeader = (): Record<string, string> => {
   const token = localStorage.getItem('aiva_token')

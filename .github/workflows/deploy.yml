@@ -68,7 +68,7 @@ jobs:
           npm ci
           npm run build
         env:
-          VITE_API_BASE_URL: https://${{ secrets.EC2_HOST }}
+          VITE_API_BASE_URL: https://api.aiva-factory.p-e.kr
 
       # ── 8. EC2에 프론트엔드 파일 복사 ─────────────────────
       - name: Copy frontend dist to EC2

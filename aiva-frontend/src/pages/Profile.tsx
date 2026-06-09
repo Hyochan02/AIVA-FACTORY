@@ -1,4 +1,3 @@
-import { Pencil } from 'lucide-react'
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/common/Button'
@@ -156,13 +155,8 @@ const Profile: React.FC = () => {
     <div className="max-w-4xl mx-auto space-y-6">
       {/* ── 프로필 헤더 ───────────────────────────────────── */}
       <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6 flex items-center gap-5">
-        <div className="relative">
-          <div className="w-16 h-16 rounded-2xl bg-linear-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white text-2xl font-black shadow-lg shadow-indigo-900/50">
-            {initial}
-          </div>
-          <button className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow-md hover:bg-indigo-700 transition-colors">
-            <Pencil size={10} />
-          </button>
+        <div className="w-16 h-16 rounded-2xl bg-linear-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white text-2xl font-black shadow-lg shadow-indigo-900/50">
+          {initial}
         </div>
         <div>
           <div className="font-bold text-white text-lg">{user?.name ?? '불러오는 중...'}</div>

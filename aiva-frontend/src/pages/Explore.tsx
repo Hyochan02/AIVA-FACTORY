@@ -1,24 +1,43 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react'
-import { Music2, Play, Heart, Flame, Mic, Search, Radio } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
-import { Badge } from '../components/common/Badge'
-import { useApi } from '../hooks/useApi'
-import { getTrending, getRecent, getCreators, searchExplore } from '../api/explore'
-import { followUser, unfollowUser } from '../api/users'
-import { likeTrack, unlikeTrack } from '../api/tracks'
-import { formatPlays, formatDuration, gradColor } from '../utils/format'
-import type { Track, PaginatedResponse } from '../types'
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { Music2, Play, Heart, Flame, Mic, Search, Radio } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Badge } from "../components/common/Badge";
+import { useApi } from "../hooks/useApi";
+import {
+  getTrending,
+  getRecent,
+  getCreators,
+  searchExplore,
+} from "../api/explore";
+import { followUser, unfollowUser } from "../api/users";
+import { likeTrack, unlikeTrack } from "../api/tracks";
+import { formatPlays, formatDuration, gradColor } from "../utils/format";
+import type { Track, PaginatedResponse } from "../types";
 
 interface Creator {
-  id:           string
-  name:         string
-  track_count:  number
-  followers:    number
-  avatar_url?:  string
-  is_following: number  // 0 | 1 (MySQL CASE 반환)
+  id: string;
+  name: string;
+  track_count: number;
+  followers: number;
+  avatar_url?: string;
+  is_following: number; // 0 | 1 (MySQL CASE 반환)
 }
 
-const GENRES = ['전체','Lo-Fi','City Pop','Ambient','Synthwave','K-Pop','EDM','Jazz','Acoustic','Hip-Hop','Classical','R&B','Drum & Bass']
+const GENRES = [
+  "전체",
+  "Lo-Fi",
+  "City Pop",
+  "Ambient",
+  "Synthwave",
+  "K-Pop",
+  "EDM",
+  "Jazz",
+  "Acoustic",
+  "Hip-Hop",
+  "Classical",
+  "R&B",
+  "Drum & Bass",
+];
 
 // ── 스켈레톤 ─────────────────────────────────────────────
 const TrackSkeleton = () => (
@@ -30,7 +49,7 @@ const TrackSkeleton = () => (
       <div className="h-2 bg-navy-800 rounded w-20" />
     </div>
   </div>
-)
+);
 
 const CardSkeleton = () => (
   <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl overflow-hidden animate-pulse">
@@ -40,129 +59,149 @@ const CardSkeleton = () => (
       <div className="h-2 bg-navy-800 rounded w-16" />
     </div>
   </div>
-)
+);
 
 const Explore: React.FC = () => {
-  const navigate   = useNavigate()
-  const [genre, setGenre]   = useState('전체')
-  const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const navigate = useNavigate();
+  const [genre, setGenre] = useState("전체");
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── 검색어 디바운싱 (300ms) ────────────────────────────
   // 타이핑할 때마다 API를 호출하면 부하가 크므로 300ms 딜레이를 줍니다.
   useEffect(() => {
-    if (searchTimer.current) clearTimeout(searchTimer.current)
-    searchTimer.current = setTimeout(() => setDebouncedSearch(search), 300)
-    return () => { if (searchTimer.current) clearTimeout(searchTimer.current) }
-  }, [search])
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+  }, [search]);
 
-  const activeGenre = genre === '전체' ? undefined : genre
+  const activeGenre = genre === "전체" ? undefined : genre;
 
   // ── API 호출 ────────────────────────────────────────────
   // 검색어가 있으면 search API, 없으면 trending API 사용
-  const isSearching = debouncedSearch.trim().length > 0
+  const isSearching = debouncedSearch.trim().length > 0;
 
-  const { data: trendingData, loading: trendingLoading } = useApi<PaginatedResponse<Track>>(
+  const { data: trendingData, loading: trendingLoading } = useApi<
+    PaginatedResponse<Track>
+  >(
     () => getTrending({ genre: activeGenre, limit: 5 }),
     [activeGenre],
-    !isSearching
-  )
+    !isSearching,
+  );
 
-  const { data: recentData, loading: recentLoading } = useApi<PaginatedResponse<Track>>(
+  const { data: recentData, loading: recentLoading } = useApi<
+    PaginatedResponse<Track>
+  >(
     () => getRecent({ genre: activeGenre, limit: 2 }),
     [activeGenre],
-    !isSearching
-  )
+    !isSearching,
+  );
 
-  const { data: searchData, loading: searchLoading } = useApi<PaginatedResponse<Track>>(
+  const { data: searchData, loading: searchLoading } = useApi<{
+    tracks: Track[];
+    users: Array<{ id: string; name: string; avatar_url?: string }>;
+  }>(
     () => searchExplore(debouncedSearch, { genre: activeGenre }),
     [debouncedSearch, activeGenre],
-    isSearching
-  )
+    isSearching,
+  );
 
   const { data: creatorsData } = useApi<{ items: Creator[] }>(
     () => getCreators(6),
-    []
-  )
+    [],
+  );
 
-  const trending  = trendingData?.items ?? []
-  const recent    = recentData?.items   ?? []
-  const searched  = searchData?.items   ?? []
-  const creators  = useMemo(() => creatorsData?.items ?? [], [creatorsData])
+  const trending = trendingData?.items ?? [];
+  const recent = recentData?.items ?? [];
+  const searchedTracks = searchData?.tracks ?? [];
+  const searchedUsers  = searchData?.users  ?? [];
+  const creators = useMemo(() => creatorsData?.items ?? [], [creatorsData]);
 
   // ── 좋아요 상태 (낙관적 업데이트) ────────────────────────
-  const [likeOverrides, setLikeOverrides] = useState<Record<string, boolean>>({})
+  const [likeOverrides, setLikeOverrides] = useState<Record<string, boolean>>(
+    {},
+  );
 
-  const handleLike = async (e: React.MouseEvent, track: Track & { is_liked?: number }) => {
-    e.stopPropagation()
-    const currentLiked = likeOverrides[track.id] ?? !!track.is_liked
+  const handleLike = async (
+    e: React.MouseEvent,
+    track: Track & { is_liked?: number },
+  ) => {
+    e.stopPropagation();
+    const currentLiked = likeOverrides[track.id] ?? !!track.is_liked;
     // 낙관적 업데이트
-    setLikeOverrides(prev => ({ ...prev, [track.id]: !currentLiked }))
+    setLikeOverrides((prev) => ({ ...prev, [track.id]: !currentLiked }));
     try {
-      if (currentLiked) await unlikeTrack(track.id)
-      else              await likeTrack(track.id)
+      if (currentLiked) await unlikeTrack(track.id);
+      else await likeTrack(track.id);
     } catch {
       // 실패 시 롤백
-      setLikeOverrides(prev => ({ ...prev, [track.id]: currentLiked }))
+      setLikeOverrides((prev) => ({ ...prev, [track.id]: currentLiked }));
     }
-  }
+  };
 
   // ── 팔로우 상태 (낙관적 업데이트: 변경분만 별도 추적) ──
-  type FollowOverride = Pick<Creator, 'is_following' | 'followers'>
-  const [overrides, setOverrides] = useState<Record<string, FollowOverride>>({})
-  const [followLoading, setFollowLoading] = useState<string | null>(null)
+  type FollowOverride = Pick<Creator, "is_following" | "followers">;
+  const [overrides, setOverrides] = useState<Record<string, FollowOverride>>(
+    {},
+  );
+  const [followLoading, setFollowLoading] = useState<string | null>(null);
 
   // creators + overrides를 합쳐 최종 목록 생성 (useEffect 불필요)
   const localCreators = useMemo(
-    () => creators.map(c => overrides[c.id] ? { ...c, ...overrides[c.id] } : c),
-    [creators, overrides]
-  )
+    () =>
+      creators.map((c) => (overrides[c.id] ? { ...c, ...overrides[c.id] } : c)),
+    [creators, overrides],
+  );
 
   const handleFollow = async (creatorId: string) => {
-    if (followLoading) return
+    if (followLoading) return;
 
-    const snapshot = creators.find(c => c.id === creatorId)
-    if (!snapshot) return
-    const current = overrides[creatorId] ?? snapshot
-    const wasFollowing = !!current.is_following
+    const snapshot = creators.find((c) => c.id === creatorId);
+    if (!snapshot) return;
+    const current = overrides[creatorId] ?? snapshot;
+    const wasFollowing = !!current.is_following;
 
-    setFollowLoading(creatorId)
+    setFollowLoading(creatorId);
 
     // 낙관적 업데이트: 즉시 UI 반영
-    setOverrides(prev => ({
+    setOverrides((prev) => ({
       ...prev,
       [creatorId]: {
         is_following: wasFollowing ? 0 : 1,
-        followers:    current.followers + (wasFollowing ? -1 : 1),
+        followers: current.followers + (wasFollowing ? -1 : 1),
       },
-    }))
+    }));
 
     try {
       if (wasFollowing) {
-        await unfollowUser(creatorId)
+        await unfollowUser(creatorId);
       } else {
-        await followUser(creatorId)
+        await followUser(creatorId);
       }
     } catch {
       // 실패 시 원래 값으로 롤백
-      setOverrides(prev => ({
+      setOverrides((prev) => ({
         ...prev,
         [creatorId]: {
           is_following: wasFollowing ? 1 : 0,
-          followers:    snapshot.followers,
+          followers: snapshot.followers,
         },
-      }))
+      }));
     } finally {
-      setFollowLoading(null)
+      setFollowLoading(null);
     }
-  }
+  };
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       {/* ── 검색 ────────────────────────────────────────── */}
       <div className="flex gap-3">
-        <input value={search} onChange={e => setSearch(e.target.value)}
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
           placeholder="트랙, 아티스트, 장르 검색..."
           className="flex-1 bg-[#0d1340] border border-(--border-color) rounded-[12px] px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
         />
@@ -170,9 +209,12 @@ const Explore: React.FC = () => {
 
       {/* ── 장르 필터 ────────────────────────────────────── */}
       <div className="flex gap-2 flex-wrap">
-        {GENRES.map(g => (
-          <button key={g} onClick={() => setGenre(g)}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${genre === g ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-300' : 'border-(--border-color) text-slate-400 hover:border-indigo-700/40'}`}>
+        {GENRES.map((g) => (
+          <button
+            key={g}
+            onClick={() => setGenre(g)}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${genre === g ? "bg-indigo-600/20 border-indigo-500/50 text-indigo-300" : "border-(--border-color) text-slate-400 hover:border-indigo-700/40"}`}
+          >
             {g}
           </button>
         ))}
@@ -182,151 +224,273 @@ const Explore: React.FC = () => {
       {isSearching && (
         <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6">
           <h2 className="flex items-center gap-2 font-bold text-white mb-5">
-            <Search size={18} className="text-slate-400" /> &quot;{debouncedSearch}&quot; 검색 결과
-            {!searchLoading && <span className="text-slate-400 font-normal text-sm ml-2">({searched.length}개)</span>}
+            <Search size={18} className="text-slate-400" /> &quot;
+            {debouncedSearch}&quot; 검색 결과
+            {!searchLoading && (
+              <span className="text-slate-400 font-normal text-sm ml-2">
+                ({searchedTracks.length + searchedUsers.length}개)
+              </span>
+            )}
           </h2>
-          {searchLoading
-            ? Array(3).fill(0).map((_, i) => <TrackSkeleton key={i} />)
-            : searched.length === 0
-              ? <p className="text-sm text-slate-400 text-center py-6">검색 결과가 없습니다.</p>
-              : <div className="flex flex-col gap-3">
-                  {searched.map((t, i) => (
-                    <TrackRow key={t.id} track={t} rank={i + 1} onPlay={() => navigate(`/player/${t.id}`)} isLiked={likeOverrides[t.id] ?? !!(t as Track & { is_liked?: number }).is_liked} onLike={handleLike} />
-                  ))}
+          {searchLoading ? (
+            Array(3)
+              .fill(0)
+              .map((_, i) => <TrackSkeleton key={i} />)
+          ) : searchedTracks.length === 0 && searchedUsers.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-6">
+              검색 결과가 없습니다.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {searchedUsers.length > 0 && (
+                <div>
+                  <p className="text-xs text-slate-500 font-semibold mb-2 px-1">아티스트</p>
+                  <div className="flex flex-col gap-2">
+                    {searchedUsers.map((u) => (
+                      <div key={u.id} className="flex items-center gap-3 p-2 rounded-xl bg-[#080c2a]/60 border border-white/5">
+                        <div className={`w-8 h-8 rounded-full bg-linear-to-br ${gradColor(u.id)} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
+                          {[...u.name][0]?.toUpperCase() ?? '?'}
+                        </div>
+                        <span className="text-sm text-white">@{u.name}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-          }
+              )}
+              {searchedTracks.length > 0 && (
+                <div>
+                  {searchedUsers.length > 0 && (
+                    <p className="text-xs text-slate-500 font-semibold mb-2 px-1">트랙</p>
+                  )}
+                  <div className="flex flex-col gap-3">
+                    {searchedTracks.map((t, i) => (
+                      <TrackRow
+                        key={t.id}
+                        track={t}
+                        rank={i + 1}
+                        onPlay={() => navigate(`/player/${t.id}`)}
+                        isLiked={
+                          likeOverrides[t.id] ??
+                          !!(t as Track & { is_liked?: number }).is_liked
+                        }
+                        onLike={handleLike}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
       {/* ── 트렌딩 ──────────────────────────────────────── */}
       {!isSearching && (
         <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6">
-          <h2 className="flex items-center gap-2 font-bold text-white mb-5"><Flame size={18} className="text-orange-400" /> 트렌딩</h2>
-          {trendingLoading
-            ? Array(5).fill(0).map((_, i) => <TrackSkeleton key={i} />)
-            : trending.length === 0
-              ? <p className="text-sm text-slate-400 text-center py-6">트렌딩 트랙이 없습니다.</p>
-              : <div className="flex flex-col gap-3">
-                  {trending.map((t, i) => (
-                    <TrackRow key={t.id} track={t} rank={i + 1} onPlay={() => navigate(`/player/${t.id}`)} isLiked={likeOverrides[t.id] ?? !!(t as Track & { is_liked?: number }).is_liked} onLike={handleLike} />
-                  ))}
-                </div>
-          }
+          <h2 className="flex items-center gap-2 font-bold text-white mb-5">
+            <Flame size={18} className="text-orange-400" /> 트렌딩
+          </h2>
+          {trendingLoading ? (
+            Array(5)
+              .fill(0)
+              .map((_, i) => <TrackSkeleton key={i} />)
+          ) : trending.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-6">
+              트렌딩 트랙이 없습니다.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {trending.map((t, i) => (
+                <TrackRow
+                  key={t.id}
+                  track={t}
+                  rank={i + 1}
+                  onPlay={() => navigate(`/player/${t.id}`)}
+                  isLiked={
+                    likeOverrides[t.id] ??
+                    !!(t as Track & { is_liked?: number }).is_liked
+                  }
+                  onLike={handleLike}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
       {!isSearching && (
         <div className="grid lg:grid-cols-[1fr_280px] gap-6 items-stretch">
           {/* ── 최신 공개 트랙 ───────────────────────────── */}
-          <div className="flex flex-col gap-4">
-            <h2 className="flex items-center gap-2 font-bold text-white"><Radio size={18} className="text-indigo-300" /> 최신 공개 트랙</h2>
-            <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-4 flex-1 flex flex-col gap-3">
-              {recentLoading
-                ? <div className="grid sm:grid-cols-2 gap-4">{Array(2).fill(0).map((_, i) => <CardSkeleton key={i} />)}</div>
-                : recent.length === 0
-                  ? <p className="text-sm text-slate-400 py-4 text-center">최신 트랙이 없습니다.</p>
-                  : <div className="grid sm:grid-cols-2 gap-3 content-start">
-                      {recent.map(t => (
-                        <div key={t.id}
-                          className="bg-[#0d1340] border border-(--border-color) rounded-2xl overflow-hidden cursor-pointer hover:-translate-y-1 transition-transform duration-200 group"
-                          onClick={() => navigate(`/player/${t.id}`)}>
-                          <div className={`h-32 bg-linear-to-br ${gradColor(t.id)} flex items-center justify-center relative`}>
-                            <Music2 size={40} className="opacity-60 text-white" />
-                            <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                              <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                                <Play size={16} fill="white" className="text-white" />
-                              </div>
-                            </div>
-                          </div>
-                          <div className="p-4">
-                            <div className="font-semibold text-white text-sm truncate mb-2">{t.title}</div>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="info">{t.genre}</Badge>
-                              <span className="ml-auto text-xs text-slate-400 shrink-0">{formatDuration(t.duration)}</span>
-                            </div>
+          <div className="flex flex-col">
+            <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6 flex-1 flex flex-col gap-5">
+              <h2 className="flex items-center gap-2 font-bold text-white">
+                <Radio size={18} className="text-indigo-300" /> 최신 공개 트랙
+              </h2>
+              {recentLoading ? (
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {Array(2)
+                    .fill(0)
+                    .map((_, i) => (
+                      <CardSkeleton key={i} />
+                    ))}
+                </div>
+              ) : recent.length === 0 ? (
+                <p className="text-sm text-slate-400 py-4 text-center">
+                  최신 트랙이 없습니다.
+                </p>
+              ) : (
+                <div className="grid sm:grid-cols-2 gap-3 content-start">
+                  {recent.map((t) => (
+                    <div
+                      key={t.id}
+                      className="bg-[#0d1340] border border-(--border-color) rounded-2xl overflow-hidden cursor-pointer hover:-translate-y-1 transition-transform duration-200 group"
+                      onClick={() => navigate(`/player/${t.id}`)}
+                    >
+                      <div
+                        className={`h-32 bg-linear-to-br ${gradColor(t.id)} flex items-center justify-center relative`}
+                      >
+                        <Music2 size={40} className="opacity-60 text-white" />
+                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                            <Play
+                              size={16}
+                              fill="white"
+                              className="text-white"
+                            />
                           </div>
                         </div>
-                      ))}
+                      </div>
+                      <div className="p-4">
+                        <div className="font-semibold text-white text-sm truncate mb-2">
+                          {t.title}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="info">{t.genre}</Badge>
+                          <span className="ml-auto text-xs text-slate-400 shrink-0">
+                            {formatDuration(t.duration)}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-              }
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
           {/* ── 인기 크리에이터 ──────────────────────────── */}
-          <div className="flex flex-col gap-4">
-            <h2 className="flex items-center gap-2 font-bold text-white"><Mic size={18} className="text-indigo-300" /> 인기 크리에이터</h2>
-            <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-3 flex flex-col gap-1 flex-1">
+          <div className="flex flex-col">
+            <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6 flex flex-col gap-4 flex-1">
+              <h2 className="flex items-center gap-2 font-bold text-white">
+                <Mic size={18} className="text-indigo-300" /> 인기 크리에이터
+              </h2>
               {creators.length === 0 && (
-                <p className="text-sm text-slate-400 text-center py-4">크리에이터 정보를 불러오는 중...</p>
+                <p className="text-sm text-slate-400 text-center py-4">
+                  크리에이터 정보를 불러오는 중...
+                </p>
               )}
-              {localCreators.map(c => {
-                const isFollowing = !!c.is_following
-                const isLoading   = followLoading === c.id
-                const initial     = [...c.name][0]?.toUpperCase() ?? '?'
+              {localCreators.map((c) => {
+                const isFollowing = !!c.is_following;
+                const isLoading = followLoading === c.id;
+                const initial = [...c.name][0]?.toUpperCase() ?? "?";
                 return (
-                  <div key={c.id} className="flex items-center gap-3 p-2 rounded-xl bg-[#080c2a]/60 border border-white/5 hover:border-indigo-500/30 transition-all">
-                    <div className={`w-10 h-10 rounded-full bg-linear-to-br ${gradColor(c.id)} flex items-center justify-center text-white font-bold shrink-0`}>
+                  <div
+                    key={c.id}
+                    className="flex items-center gap-3 p-2 rounded-xl bg-[#080c2a]/60 border border-white/5 hover:border-indigo-500/30 transition-all"
+                  >
+                    <div
+                      className={`w-10 h-10 rounded-full bg-linear-to-br ${gradColor(c.id)} flex items-center justify-center text-white font-bold shrink-0`}
+                    >
                       {initial}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-white">@{c.name}</div>
+                      <div className="text-sm font-semibold text-white truncate">
+                        @{c.name}
+                      </div>
                       <div className="text-xs text-slate-400">
-                        {c.track_count}개 트랙 · 팔로워 {formatPlays(c.followers)}
+                        {c.track_count}개 트랙 · 팔로워{" "}
+                        {formatPlays(c.followers)}
                       </div>
                     </div>
                     <button
                       onClick={() => handleFollow(c.id)}
                       disabled={isLoading}
-                      className={`px-2.5 py-1 text-xs font-semibold rounded-full border transition-all ${
+                      className={`px-2.5 py-1 mr-1 text-xs font-semibold rounded-full border transition-all ${
                         isFollowing
-                          ? 'bg-indigo-600/20 border-indigo-500/60 text-indigo-300'
-                          : 'border-indigo-500/40 text-indigo-300 hover:bg-indigo-600/20'
-                      } ${isLoading ? 'opacity-50' : ''}`}
+                          ? "bg-indigo-600/20 border-indigo-500/60 text-indigo-300"
+                          : "border-indigo-500/40 text-indigo-300 hover:bg-indigo-600/20"
+                      } ${isLoading ? "opacity-50" : ""}`}
                     >
-                      {isLoading ? '...' : isFollowing ? '팔로잉' : '팔로우'}
+                      {isLoading ? "..." : isFollowing ? "팔로잉" : "팔로우"}
                     </button>
                   </div>
-                )
+                );
               })}
             </div>
           </div>
         </div>
       )}
     </div>
-  )
-}
+  );
+};
 
 // ── 트랙 행 컴포넌트 (Trending + Search에서 공용) ─────────
 interface TrackRowProps {
-  track:   Track
-  rank:    number
-  onPlay:  () => void
-  isLiked?: boolean
-  onLike?: (e: React.MouseEvent, track: Track & { is_liked?: number }) => void
+  track: Track;
+  rank: number;
+  onPlay: () => void;
+  isLiked?: boolean;
+  onLike?: (e: React.MouseEvent, track: Track & { is_liked?: number }) => void;
 }
-const TrackRow: React.FC<TrackRowProps> = ({ track, rank, onPlay, isLiked = false, onLike }) => (
+const TrackRow: React.FC<TrackRowProps> = ({
+  track,
+  rank,
+  onPlay,
+  isLiked = false,
+  onLike,
+}) => (
   <div
-    className="flex items-center gap-4 p-3 rounded-xl bg-[#080c2a]/60 border border-white/5 hover:border-indigo-500/30 transition-all cursor-pointer group"
+    className="flex items-center gap-4 p-3 rounded-md bg-[#080c2a]/60 border border-white/5 hover:border-indigo-500/30 transition-all cursor-pointer group"
     onClick={onPlay}
   >
-    <span className="w-5 text-sm font-black text-slate-500 text-center">{rank}</span>
-    <div className={`w-11 h-11 rounded-xl bg-linear-to-br ${gradColor(track.id)} flex items-center justify-center text-white shrink-0`}>
-      <Play size={16} fill="currentColor" />
-    </div>
-    <div className="flex-1 min-w-0">
-      <div className="text-sm font-semibold text-white truncate">{track.title}</div>
-      <div className="text-xs text-slate-400">{(track as Track & { mood?: string }).mood}</div>
-    </div>
-    <Badge variant="info">{track.genre}</Badge>
-    <span className="text-xs text-slate-500">▶ {formatPlays(track.plays)}</span>
-    <span className="text-xs text-slate-500 hidden sm:block">{formatDuration(track.duration)}</span>
-    <button
-      className={`transition-all ${isLiked ? 'opacity-100 text-rose-400' : 'opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-400'}`}
-      onClick={e => onLike?.(e, track as Track & { is_liked?: number })}
-    >
-      <Heart size={14} fill={isLiked ? 'currentColor' : 'none'} />
-    </button>
-  </div>
-)
+    <span className="w-5 text-sm font-black text-slate-500 text-center shrink-0">
+      {rank}
+    </span>
 
-export default Explore
+    <div className="flex-1 min-w-0">
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-semibold text-white truncate">
+          {track.title}
+        </span>
+        <span className="text-xs text-slate-500 shrink-0">
+          {formatDuration(track.duration)}
+        </span>
+        <span className="text-xs text-slate-500 shrink-0">
+          {formatPlays(track.plays)}회 재생
+        </span>
+        <button
+          className={`transition-all shrink-0 ${isLiked ? "text-rose-400" : "opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-400"}`}
+          onClick={(e) => onLike?.(e, track as Track & { is_liked?: number })}
+        >
+          <Heart size={13} fill={isLiked ? "currentColor" : "none"} />
+        </button>
+      </div>
+      <div className="flex items-center gap-1.5 mt-1">
+        <Badge variant="info">{track.genre}</Badge>
+        {(track as Track & { mood?: string }).mood && (
+          <Badge variant="info">
+            {(track as Track & { mood?: string }).mood}
+          </Badge>
+        )}
+      </div>
+    </div>
+
+    <div
+      className={`w-10 h-10 rounded-xl bg-linear-to-br ${gradColor(track.id)} flex items-center justify-center text-white shrink-0`}
+    >
+      <Play size={15} fill="currentColor" />
+    </div>
+  </div>
+);
+
+export default Explore;

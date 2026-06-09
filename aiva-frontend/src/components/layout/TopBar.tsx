@@ -1,6 +1,6 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Coins, Bell, Plus } from 'lucide-react'
+import { Coins, Plus } from 'lucide-react'
 import { Button } from '../common/Button'
 import { useAuth } from '../../context/AuthContext'
 
@@ -30,13 +30,7 @@ export const TopBar: React.FC<TopBarProps> = ({ title }) => {
           <span className="text-xs font-bold text-indigo-300">{credits} 크레딧</span>
         </div>
 
-        {/* 알림 */}
-        <button className="relative w-9 h-9 flex items-center justify-center rounded-sm hover:bg-navy-700/60 transition-colors text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
-          <Bell size={18} />
-          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-indigo-400 rounded-full" />
-        </button>
-
-        {/* 음악 생성 바로가기 */}
+{/* 음악 생성 바로가기 */}
         <Button variant="primary" size="sm" onClick={() => navigate('/create')}>
           <Plus size={14} />
           생성하기

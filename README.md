@@ -41,7 +41,8 @@
 4. [아키텍처](#-아키텍처)
 5. [DB 설계](#-db-설계)
 6. [로컬 실행 방법](#-로컬-실행-방법)
-7. [AI 활용 내역](#-ai-활용-내역)
+7. [배포 정보](#️-배포-정보)
+8. [AI 활용 내역](#-ai-활용-내역)
 
 ---
 
@@ -313,6 +314,95 @@ cd aiva-frontend
 npm install
 npm run dev
 # → http://localhost:5173
+```
+
+---
+
+## ☁️ 배포 정보
+
+### 🌐 라이브 서비스
+
+| 서비스 | URL | 설명 |
+|--------|-----|------|
+| **프론트엔드** | [https://aiva-factory.p-e.kr](https://aiva-factory.p-e.kr) | React SPA (Nginx 정적 서빙) |
+| **API 서버** | [https://api.aiva-factory.p-e.kr](https://api.aiva-factory.p-e.kr) | Express REST API |
+| **API 문서** | [https://api.aiva-factory.p-e.kr/api-docs](https://api.aiva-factory.p-e.kr/api-docs) | Swagger UI |
+
+### 🏗 프로덕션 인프라
+
+```
+aiva-factory.p-e.kr          api.aiva-factory.p-e.kr
+        │                              │
+        └──────────┬───────────────────┘
+                   │ HTTPS (Let's Encrypt)
+         ┌─────────▼──────────┐
+         │   AWS EC2 (t2.micro)│
+         │   ap-northeast-2    │
+         │                     │
+         │  ┌───────────────┐  │
+         │  │  Nginx:alpine │  │  ← 리버스 프록시 + 정적 서빙
+         │  └──────┬────────┘  │
+         │         │           │
+         │  ┌──────▼────────┐  │
+         │  │  Express:3000 │  │  ← REST API (Docker)
+         │  └──────┬────────┘  │
+         └─────────┼───────────┘
+                   │
+         ┌─────────▼────────┐
+         │  AWS RDS MySQL   │  ← 프로덕션 DB
+         └──────────────────┘
+```
+
+### 🔄 CI/CD 파이프라인
+
+`main` 브랜치에 push하면 GitHub Actions가 자동으로 배포합니다.
+
+```
+git push origin main
+        │
+        ▼
+┌─────────────────────────────────────────────────┐
+│              GitHub Actions                      │
+│                                                  │
+│  ① 백엔드 Docker 이미지 빌드                      │
+│     → GHCR (GitHub Container Registry) push      │
+│                                                  │
+│  ② 프론트엔드 빌드 (npm run build)                │
+│     VITE_API_BASE_URL=https://api.aiva-factory... │
+│                                                  │
+│  ③ SCP: dist/ → EC2 nginx/html/                  │
+│     SCP: nginx.conf → EC2 nginx/nginx.conf        │
+│                                                  │
+│  ④ SSH: docker compose pull backend              │
+│         docker compose up -d --no-deps backend   │
+│         nginx -s reload                          │
+└─────────────────────────────────────────────────┘
+        │
+        ▼
+  https://aiva-factory.p-e.kr ✅
+```
+
+### 🔑 GitHub Secrets 설정 (필수)
+
+| Secret 이름 | 설명 |
+|-------------|------|
+| `EC2_HOST` | EC2 퍼블릭 IP 또는 도메인 |
+| `EC2_SSH_KEY` | EC2 접속용 PEM 키 (private key) |
+
+### 🛡 SSL 인증서
+
+Let's Encrypt 무료 인증서를 사용합니다. EC2에서 certbot으로 발급 후 자동 갱신됩니다.
+
+```bash
+# 발급 (EC2에서 1회 실행)
+sudo certbot certonly --webroot \
+  -w /home/ubuntu/aiva-factory/nginx/html \
+  -d aiva-factory.p-e.kr \
+  -d www.aiva-factory.p-e.kr \
+  --email your@email.com --agree-tos --non-interactive
+
+# 자동 갱신 확인
+sudo systemctl status certbot.timer
 ```
 
 ---

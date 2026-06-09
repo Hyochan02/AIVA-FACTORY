@@ -81,6 +81,17 @@ jobs:
           target: "/home/ubuntu/aiva-factory/nginx/html/"
           strip_components: 2
 
+      # ── 8-1. nginx.conf EC2에 복사 ────────────────────────
+      - name: Copy nginx config to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "aiva-backend/nginx/nginx.conf"
+          target: "/home/ubuntu/aiva-factory/nginx/nginx.conf"
+          strip_components: 3
+
       # ── 9. EC2 SSH 접속 → Docker 재시작 ───────────────────
       - name: Deploy on EC2
         uses: appleboy/ssh-action@v1.0.3
@@ -90,8 +101,6 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd /home/ubuntu/aiva-factory
-
-            git pull origin main
 
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 

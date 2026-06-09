@@ -1,125 +1,258 @@
 <div align="center">
 
-# 🎵 AIVA FACTORY
+<br/>
 
-**AI 음악 생성 플랫폼** — 텍스트 한 줄로 나만의 음악을 만드세요
+```
+ █████╗ ██╗██╗   ██╗ █████╗     ███████╗ █████╗  ██████╗████████╗ ██████╗ ██████╗ ██╗   ██╗
+██╔══██╗██║██║   ██║██╔══██╗    ██╔════╝██╔══██╗██╔════╝╚══██╔══╝██╔═══██╗██╔══██╗╚██╗ ██╔╝
+███████║██║██║   ██║███████║    █████╗  ███████║██║        ██║   ██║   ██║██████╔╝ ╚████╔╝ 
+██╔══██║██║╚██╗ ██╔╝██╔══██║    ██╔══╝  ██╔══██║██║        ██║   ██║   ██║██╔══██╗  ╚██╔╝  
+██║  ██║██║ ╚████╔╝ ██║  ██║    ██║     ██║  ██║╚██████╗   ██║   ╚██████╔╝██║  ██║   ██║   
+╚═╝  ╚═╝╚═╝  ╚═══╝  ╚═╝  ╚═╝    ╚═╝     ╚═╝  ╚═╝ ╚═════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝   ╚═╝  
+```
 
-[![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=white)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![Node.js](https://img.shields.io/badge/Node.js-Express-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
-[![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?style=flat-square&logo=mysql&logoColor=white)](https://www.mysql.com)
-[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com)
-[![AWS](https://img.shields.io/badge/AWS-EC2%20%7C%20S3%20%7C%20RDS-FF9900?style=flat-square&logo=amazon-aws&logoColor=white)](https://aws.amazon.com)
+### 🎵 텍스트 한 줄로 만드는 나만의 AI 음악
 
-[🌐 라이브 데모](https://aiva-factory.p-e.kr) · [📖 API 문서](https://api.aiva-factory.p-e.kr/api-docs)
+<br/>
+
+[![React](https://img.shields.io/badge/React_18-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-0F172A?style=for-the-badge&logo=tailwind-css&logoColor=38BDF8)](https://tailwindcss.com)
+[![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org)
+[![MySQL](https://img.shields.io/badge/MySQL_8.0-4479A1?style=for-the-badge&logo=mysql&logoColor=white)](https://www.mysql.com)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com)
+[![AWS](https://img.shields.io/badge/AWS-FF9900?style=for-the-badge&logo=amazon-aws&logoColor=white)](https://aws.amazon.com)
+
+<br/>
+
+[**🌐 라이브 데모**](https://aiva-factory.p-e.kr)&nbsp;&nbsp;·&nbsp;&nbsp;[**📖 API 문서 (Swagger)**](https://api.aiva-factory.p-e.kr/api-docs)&nbsp;&nbsp;·&nbsp;&nbsp;[**🐛 이슈 신고**](https://github.com/Hyochan02/AIVA-FACTORY/issues)
+
+<br/>
 
 </div>
 
 ---
 
+## 🗂 목차
+
+1. [프로젝트 소개](#-프로젝트-소개)
+2. [주요 기능](#-주요-기능)
+3. [기술 스택](#-기술-스택)
+4. [아키텍처](#-아키텍처)
+5. [DB 설계](#-db-설계)
+6. [로컬 실행 방법](#-로컬-실행-방법)
+7. [AI 활용 내역](#-ai-활용-내역)
+
+---
+
 ## 📌 프로젝트 소개
 
-**AIVA FACTORY**는 2026-1 AI비즈니스마케팅 수업의 웹 서비스 디자인 & 개발 과제로 제작된 AI 음악 생성 플랫폼입니다.
+> 2026-1 AI비즈니스마케팅 웹 서비스 디자인 & 개발 과제
 
-Suno AI API를 활용하여 음악 지식 없이도 텍스트 프롬프트만으로 실제 재생 가능한 음악을 생성하고, 편집하고, 커뮤니티에서 공유할 수 있습니다.
+**AIVA FACTORY**는 음악 지식이 없어도 텍스트 프롬프트 하나로 실제 재생 가능한 음악을 만들어주는 AI 음악 생성 플랫폼입니다.
 
-### ✨ 주요 기능
+Suno AI API를 기반으로 음악 생성부터 편집·배포까지 하나의 흐름으로 이어지며, 커뮤니티에서 다른 유저의 트랙을 감상하고 팔로우·좋아요·댓글로 소통할 수 있습니다.
 
-| 기능 | 설명 | 크레딧 |
-|------|------|--------|
-| 🎵 AI 음악 생성 | 프롬프트로 최대 2가지 버전 동시 생성 | 10 |
-| 🔁 음악 연장 | 기존 트랙을 자연스럽게 이어서 연장 | 4 |
-| ✍️ 가사 생성 | 주제 입력 시 가사 후보 2종 생성 | 2 |
-| 🎤 보컬 분리 | 보컬+반주 분리 또는 전체 스템 분리 | 10 |
-| 🔊 WAV 변환 | MP3 트랙을 고음질 WAV로 변환 | 2 |
-| 🎬 뮤직비디오 | AI 비주얼 MP4 비디오 자동 생성 | 5 |
-| 👥 커뮤니티 | 트렌딩 탐색, 팔로우, 좋아요·댓글 | — |
+---
+
+## ✨ 주요 기능
+
+<table>
+  <tr>
+    <td align="center" width="200">
+      <h3>🎵</h3>
+      <b>AI 음악 생성</b><br/>
+      <sub>프롬프트 입력으로 최대 2가지 버전 동시 생성. 장르·무드·BPM 설정 지원.</sub>
+    </td>
+    <td align="center" width="200">
+      <h3>🔁</h3>
+      <b>음악 연장</b><br/>
+      <sub>기존 트랙의 원하는 지점부터 자연스럽게 이어서 연장 생성.</sub>
+    </td>
+    <td align="center" width="200">
+      <h3>✍️</h3>
+      <b>가사 생성</b><br/>
+      <sub>주제·컨셉을 입력하면 AI가 가사 후보 2종을 자동으로 작성.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="200">
+      <h3>🎤</h3>
+      <b>보컬 분리</b><br/>
+      <sub>보컬+반주 2트랙 분리 또는 드럼·베이스 포함 전체 스템 분리.</sub>
+    </td>
+    <td align="center" width="200">
+      <h3>🔊</h3>
+      <b>WAV 변환</b><br/>
+      <sub>생성된 MP3 트랙을 고음질 WAV 포맷으로 변환해 다운로드.</sub>
+    </td>
+    <td align="center" width="200">
+      <h3>🎬</h3>
+      <b>뮤직비디오</b><br/>
+      <sub>트랙에 맞는 AI 비주얼 이펙트가 포함된 MP4 영상 자동 생성.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="200">
+      <h3>🔥</h3>
+      <b>커뮤니티 탐색</b><br/>
+      <sub>트렌딩·최신 공개 트랙 탐색, 크리에이터 팔로우, 좋아요·댓글.</sub>
+    </td>
+    <td align="center" width="200">
+      <h3>📚</h3>
+      <b>라이브러리</b><br/>
+      <sub>그리드/리스트 뷰, 장르·상태 필터, 공개/비공개 전환.</sub>
+    </td>
+    <td align="center" width="200">
+      <h3>💳</h3>
+      <b>크레딧 시스템</b><br/>
+      <sub>가입 시 100 크레딧 무료 지급. 기능별 크레딧 차감.</sub>
+    </td>
+  </tr>
+</table>
 
 ---
 
 ## 🛠 기술 스택
 
-### Frontend
-- **React 18** + **TypeScript** + **Vite**
-- **Tailwind CSS v4** — 스타일링
-- **React Router v6** — 클라이언트 라우팅
-- **Zustand** — 전역 상태 관리
-- **Lucide React** — 아이콘
+<details>
+<summary><b>Frontend</b></summary>
 
-### Backend
-- **Node.js** + **Express** + **TypeScript**
-- **mysql2** — MySQL 커넥션 풀
-- **JWT** (30일) + **bcryptjs** — 인증/보안
-- **Zod** — 요청 유효성 검사
-- **Swagger UI** — API 문서 자동화
-- **helmet** + **cors** — 보안 헤더
+<br/>
 
-### Infrastructure
-- **AWS EC2** — 애플리케이션 서버
-- **AWS RDS (MySQL 8.0)** — 데이터베이스
-- **AWS S3** — 오디오 파일 저장
-- **Docker + Docker Compose** — 컨테이너화
-- **GitHub Actions** — CI/CD
-- **Nginx** — 리버스 프록시 + 정적 파일 서빙
+| 분류 | 기술 | 선택 이유 |
+|------|------|-----------|
+| Framework | React 18 + TypeScript | 컴포넌트 기반 구조, 타입 안정성 |
+| Styling | Tailwind CSS v4 | 유틸리티 클래스로 빠른 UI 개발 |
+| 라우팅 | React Router v6 | SPA 클라이언트 라우팅 |
+| 전역 상태 | Zustand | Redux 대비 가벼운 보일러플레이트 |
+| 서버 상태 | 커스텀 `useApi` 훅 | polling 기반 비동기 상태 관리 |
+| 아이콘 | Lucide React | 일관된 아이콘 시스템 |
+| 번들러 | Vite + Rolldown | 빠른 HMR, 최적화된 빌드 |
 
-### External API
-- **[Suno API](https://sunoapi.org)** — AI 음악 생성 전 기능
+</details>
+
+<details>
+<summary><b>Backend</b></summary>
+
+<br/>
+
+| 분류 | 기술 | 선택 이유 |
+|------|------|-----------|
+| Runtime | Node.js + Express | 경량 API 서버, 빠른 개발 속도 |
+| 언어 | TypeScript | 타입 안정성, 자동완성 |
+| DB 드라이버 | mysql2 (Connection Pool) | 직접 SQL로 쿼리 최적화 |
+| 인증 | JWT (30일) + bcryptjs | Stateless 인증, 비밀번호 해시 |
+| 유효성 검사 | Zod | 런타임 스키마 검증 |
+| API 문서 | Swagger UI (OpenAPI 3.0) | 자동 문서화, 직접 테스트 가능 |
+| 보안 | helmet + cors | HTTP 보안 헤더, CORS 정책 |
+| 외부 통신 | axios | Suno API 비동기 호출 |
+
+</details>
+
+<details>
+<summary><b>Infrastructure</b></summary>
+
+<br/>
+
+| 분류 | 기술 |
+|------|------|
+| 서버 | AWS EC2 (t2.micro) |
+| DB | AWS RDS (MySQL 8.0) |
+| 파일 저장 | AWS S3 |
+| 컨테이너 | Docker + Docker Compose |
+| CI/CD | GitHub Actions |
+| 리버스 프록시 | Nginx |
+| 도메인 | `aiva-factory.p-e.kr` |
+
+</details>
 
 ---
 
 ## 🏗 아키텍처
 
 ```
-[ Browser ]
-    │ HTTPS
-    ▼
-[ Nginx ]
-    ├──▶ [ React SPA ]         (정적 파일)
-    └──▶ [ Express API ]       (Docker)
-              ├──▶ [ MySQL / AWS RDS ]
-              └──▶ [ Suno API ]
-                       │ 비동기 콜백
-                       └──▶ POST /api/editor/callback/:type
+┌─────────────────────────────────────────────────────────┐
+│                       Browser                           │
+└────────────────────────┬────────────────────────────────┘
+                         │ HTTPS
+┌────────────────────────▼────────────────────────────────┐
+│                    Nginx (Reverse Proxy)                 │
+│          ┌───────────────────────────────┐              │
+│          │     React SPA (Vite Build)    │  정적 서빙    │
+│          └───────────────────────────────┘              │
+│          ┌───────────────────────────────┐              │
+│          │   Express API (Docker)        │  /api/*      │
+│          └──────────┬────────────────────┘              │
+└─────────────────────┼───────────────────────────────────┘
+                      │
+          ┌───────────┴────────────┐
+          │                        │
+┌─────────▼──────────┐   ┌────────▼────────────────┐
+│  MySQL (AWS RDS)   │   │     Suno AI API          │
+│  - users           │   │  (sunoapi.org)           │
+│  - tracks          │   │                          │
+│  - suno_jobs       │   │  비동기 처리             │
+│  - credit_history  │   │  ┌──────────────────┐   │
+│  - follows / likes │   │  │ 완료 시 콜백 →   │   │
+└────────────────────┘   │  │ /api/callback/   │   │
+                          │  └──────────────────┘   │
+                          └─────────────────────────┘
 ```
 
-**비동기 처리 흐름**
-1. 클라이언트 요청 → 백엔드가 Suno API 호출 후 즉시 `jobId` 반환
-2. 클라이언트가 3초 간격으로 상태 폴링
-3. Suno 완료 시 콜백으로 DB 업데이트
+**비동기 음악 생성 흐름**
+
+```
+Client          Backend          Suno API
+  │                │                 │
+  │── 생성 요청 ──▶│                 │
+  │                │── API 호출 ────▶│
+  │◀── jobId 즉시 반환               │
+  │                │           (처리 중...)
+  │── 3초마다 폴링 ─▶│               │
+  │◀── status: pending               │
+  │                │◀── 완료 콜백 ───│
+  │── 폴링 ────────▶│               │
+  │◀── status: done + URL            │
+```
 
 ---
 
-## 📁 프로젝트 구조
+## 🗄 DB 설계
 
-```
-aiva-factory/
-├── aiva-frontend/          # React 클라이언트
-│   └── src/
-│       ├── api/            # API 호출 함수
-│       ├── components/     # 공통 컴포넌트
-│       ├── hooks/          # 커스텀 훅 (useApi, usePoller)
-│       ├── pages/          # 페이지 컴포넌트
-│       ├── store/          # Zustand 전역 상태
-│       └── utils/          # 유틸 함수
-│
-└── aiva-backend/           # Express API 서버
-    ├── src/
-    │   ├── routes/         # API 라우터
-    │   ├── middlewares/    # 인증 등 미들웨어
-    │   ├── config/         # DB, 설정
-    │   └── docs/           # Swagger 명세
-    └── prisma/
-        └── schema.sql      # DB 스키마
-```
+<details>
+<summary><b>테이블 목록 (14개)</b></summary>
+
+<br/>
+
+| 테이블 | 설명 |
+|--------|------|
+| `users` | 회원 정보 (이메일, 비밀번호 해시, 플랜) |
+| `tracks` | AI 생성 트랙 (제목, 프롬프트, 장르, 상태, 공개 여부) |
+| `track_versions` | 트랙 버전 1·2 (Suno audio ID, URL) |
+| `suno_jobs` | 에디터 작업 히스토리 (type, status, result_url) |
+| `credit_history` | 크레딧 지급/차감 내역 |
+| `likes` | 트랙 좋아요 관계 |
+| `comments` | 트랙 댓글 |
+| `follows` | 유저 팔로우 관계 |
+| `subscriptions` | 구독 플랜 정보 |
+| `notification_settings` | 알림 수신 설정 |
+| `social_accounts` | 소셜 로그인 연동 (예정) |
+| `user_preferences` | 유저 선호 설정 |
+| `editor_settings` | 에디터 개인 설정 |
+| `password_resets` | 비밀번호 재설정 토큰 |
+
+</details>
 
 ---
 
 ## 🚀 로컬 실행 방법
 
 ### 사전 요구사항
-- Node.js 18+
+
+- Node.js `18+`
 - Docker & Docker Compose
-- MySQL 8.0 (또는 Docker로 실행)
+- Suno API Key ([sunoapi.org](https://sunoapi.org) 에서 발급)
 
 ### 1. 저장소 클론
 
@@ -131,57 +264,46 @@ cd AIVA-FACTORY
 ### 2. 환경변수 설정
 
 ```bash
-# 백엔드
 cp aiva-backend/.env.example aiva-backend/.env
-# .env 파일을 열어 실제 값 입력
-
-# 프론트엔드
 cp aiva-frontend/.env.example aiva-frontend/.env
 ```
 
-**백엔드 주요 환경변수** (`aiva-backend/.env`)
+`aiva-backend/.env` 파일에 아래 값을 채워주세요:
 
 ```env
 NODE_ENV=development
 PORT=3000
-JWT_SECRET=your_jwt_secret
+JWT_SECRET=your_secret_here
 
-# MySQL
 DB_HOST=localhost
 DB_PORT=3306
 DB_USER=root
-DB_PASSWORD=your_password
+DB_PASSWORD=your_db_password
 DB_NAME=aiva_factory
 
-# Suno AI API
 SUNO_API_KEY=your_suno_api_key
 SUNO_API_BASE_URL=https://api.sunoapi.org
 
-# AWS S3
 AWS_REGION=ap-northeast-2
 AWS_ACCESS_KEY_ID=your_key
 AWS_SECRET_ACCESS_KEY=your_secret
 AWS_S3_BUCKET=your_bucket
+
+ALLOWED_ORIGINS=http://localhost:5173
+API_BASE_URL=http://localhost:3000
 ```
 
 ### 3. 백엔드 실행
 
 ```bash
 cd aiva-backend
-docker compose up -d        # MySQL + API 서버 실행
-```
-
-또는 로컬 Node.js로 실행:
-```bash
-npm install
-npm run dev
+docker compose up -d
 ```
 
 ### 4. DB 초기화
 
 ```bash
-# MySQL에 접속 후 스키마 적용
-mysql -u root -p aiva_factory < prisma/schema.sql
+docker exec -i aiva_mysql mysql -uroot -pyour_password aiva_factory < prisma/schema.sql
 ```
 
 ### 5. 프론트엔드 실행
@@ -190,28 +312,41 @@ mysql -u root -p aiva_factory < prisma/schema.sql
 cd aiva-frontend
 npm install
 npm run dev
-# http://localhost:5173 에서 확인
+# → http://localhost:5173
 ```
 
 ---
 
-## 📄 API 문서
+## 📖 API 문서
 
-Swagger UI: `http://localhost:3000/api-docs`  
-프로덕션: [https://api.aiva-factory.p-e.kr/api-docs](https://api.aiva-factory.p-e.kr/api-docs)
+Swagger UI에서 모든 엔드포인트를 직접 테스트할 수 있습니다.
 
-주요 엔드포인트:
+- **로컬**: `http://localhost:3000/api-docs`
+- **프로덕션**: [https://api.aiva-factory.p-e.kr/api-docs](https://api.aiva-factory.p-e.kr/api-docs)
+
+<details>
+<summary><b>주요 엔드포인트 목록</b></summary>
+
+<br/>
 
 | Method | 경로 | 설명 |
 |--------|------|------|
-| POST | `/api/auth/register` | 회원가입 |
-| POST | `/api/auth/login` | 로그인 |
-| POST | `/api/generate` | 음악 생성 요청 |
-| GET | `/api/generate/:id/status` | 생성 상태 폴링 |
-| GET | `/api/tracks` | 내 트랙 목록 |
-| GET | `/api/explore/trending` | 트렌딩 트랙 |
-| POST | `/api/editor/lyrics` | 가사 생성 |
-| GET | `/api/editor/jobs` | 편집 히스토리 |
+| `POST` | `/api/auth/register` | 회원가입 (크레딧 100 자동 지급) |
+| `POST` | `/api/auth/login` | 로그인 → JWT 반환 |
+| `GET` | `/api/auth/me` | 내 프로필 + 크레딧 조회 |
+| `POST` | `/api/generate` | 음악 생성 요청 (비동기) |
+| `GET` | `/api/generate/:id/status` | 생성 상태 폴링 |
+| `GET` | `/api/tracks` | 내 트랙 목록 |
+| `PATCH` | `/api/tracks/:id` | 트랙 공개/비공개 전환 |
+| `GET` | `/api/explore/trending` | 트렌딩 트랙 |
+| `GET` | `/api/explore/recent` | 최신 공개 트랙 |
+| `POST` | `/api/editor/lyrics` | 가사 생성 |
+| `POST` | `/api/editor/extend` | 음악 연장 |
+| `POST` | `/api/editor/separate` | 보컬 분리 |
+| `GET` | `/api/editor/jobs` | 편집 히스토리 조회 |
+| `GET` | `/api/credits` | 크레딧 잔액 조회 |
+
+</details>
 
 ---
 
@@ -219,41 +354,57 @@ Swagger UI: `http://localhost:3000/api-docs`
 
 ### 서비스 내 AI — Suno API
 
-본 서비스의 핵심 기능은 **Suno AI API**를 통해 구현됩니다. 텍스트 프롬프트를 Suno 서버에 전달하면 실제 음악 파일(MP3)을 생성해서 반환합니다. 음악 연장·가사 생성·보컬 분리·WAV 변환·뮤직비디오 생성도 동일 API 체계를 사용합니다.
+본 서비스의 핵심은 **Suno AI**입니다. 텍스트 프롬프트를 전달하면 실제 재생 가능한 음악 파일을 생성하며, 음악 연장·가사 생성·보컬 분리·WAV 변환·뮤직비디오까지 동일 API 체계로 제공됩니다.
+
+Suno API는 비동기 방식으로 동작합니다. 요청 시 `taskId`를 즉시 반환하고, 완료 후 콜백 URL로 결과를 전송합니다.
+
+---
 
 ### 개발 과정의 AI 활용 — Claude (Anthropic)
 
 본 프로젝트는 **Claude AI Cowork 모드**를 활용하여 개발되었습니다.
 
-**설계 단계**
+<details>
+<summary><b>설계 단계에서의 활용</b></summary>
+
 - 전체 폴더 구조 및 기술 스택 선정
-- DB 스키마 설계 (14개 테이블)
-- 비동기 음악 생성 흐름 설계 (폴링 방식)
-- JWT 인증 미들웨어 구조
+- DB 스키마 설계 (14개 테이블, 관계 정의)
+- 비동기 음악 생성 흐름 설계 (폴링 vs 웹소켓 비교 분석)
+- JWT 인증 미들웨어 및 보안 구조 설계
 
-**구현 단계**
-- Express 라우터 전체 (인증, 트랙, 탐색, 에디터, 크레딧 등)
-- Suno API 연동 및 콜백 핸들러
-- React 페이지 컴포넌트 및 커스텀 훅
-- Swagger OpenAPI 3.0 문서
-- Tailwind CSS UI 구현 (피그마 디자인 기반)
+</details>
 
-**디버깅**
-- Suno lyrics API 응답 구조 파싱 오류 수정
-- `suno_jobs` 테이블 `user_id` 누락으로 인한 히스토리 조회 실패 해결
-- JWT 401 응답 시 전체 로그아웃되던 버그 수정
+<details>
+<summary><b>구현 단계에서의 활용</b></summary>
+
+- Express 라우터 전체 구현 (인증·트랙·탐색·에디터·크레딧·통계)
+- Suno API 연동 및 콜백 핸들러 구현
+- React 페이지 컴포넌트 및 커스텀 훅 (`useApi`, `usePoller`)
+- Swagger OpenAPI 3.0 문서 작성
+- Tailwind CSS UI 구현 (Figma 디자인 기반)
+- Docker Compose 구성 및 AWS 배포 설정
+
+</details>
+
+<details>
+<summary><b>디버깅에서의 활용</b></summary>
+
+- Suno lyrics API 응답 구조 파싱 오류 수정 (`data.response.data[0]` 구조)
+- `suno_jobs.user_id` 누락으로 인한 히스토리 조회 실패 해결
+- JWT 401 응답 시 전체 로그아웃되던 버그 수정 (auth route만 로그아웃 처리)
 - Docker Compose 경로 오류 해결
+- Editor 드롭다운 화살표 UI 깨짐 수정
 
-> 💡 AI를 활용하면 반복적인 코드 작성 시간을 줄일 수 있지만, API 응답 구조나 DB 동작처럼 실제로 확인해야 하는 부분은 직접 테스트하고 판단하는 과정이 필요했습니다.
+</details>
 
----
-
-## 📝 라이선스
-
-본 프로젝트는 학습 및 포트폴리오 목적으로 제작되었습니다.
+> 💡 **학습 포인트** — AI를 활용하면 반복적인 코드 작성 시간을 줄일 수 있지만, API 응답 구조·DB 동작·배포 환경처럼 **실제로 실행해봐야 알 수 있는 부분**은 직접 테스트하고 판단하는 과정이 반드시 필요했습니다. AI가 제안한 구조를 이해하고 스스로 검증하는 능력이 핵심입니다.
 
 ---
 
 <div align="center">
-  2026-1 AI비즈니스마케팅 · 진효찬
+
+**2026-1 AI비즈니스마케팅**
+
+Made with ❤️ by **진효찬**
+
 </div>

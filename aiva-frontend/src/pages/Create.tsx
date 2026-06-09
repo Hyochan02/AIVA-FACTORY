@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "../components/common/Button";
 import { Toggle } from "../components/common/Toggle";
-import { startGenerate } from "../api/generate";
+import { startGenerate } from "../api/generate/startGenerate";
 
 const GENRES = [
   "Lo-Fi",

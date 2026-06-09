@@ -1,6 +1,6 @@
-import React, { type ReactNode } from 'react'
+import React, { useEffect, type ReactNode } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider, useAuth } from './context/AuthContext'
+import { useAuthStore } from './stores/authStore'
 import { AppLayout } from './components/layout/AppLayout'
 
 const Landing        = React.lazy(() => import('./pages/Landing'))
@@ -27,8 +27,15 @@ const PageLoader = () => (
   </div>
 )
 
+const AuthInit: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const init = useAuthStore((s) => s.init)
+  useEffect(() => { init() }, [init])
+  return <>{children}</>
+}
+
 const PrivateRoute: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { user, loading } = useAuth()
+  const user    = useAuthStore((s) => s.user)
+  const loading = useAuthStore((s) => s.loading)
   if (loading) return <PageLoader />
   if (!user) return <Navigate to="/login" replace />
   return <>{children}</>
@@ -67,9 +74,9 @@ function AppRoutes() {
 function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
+      <AuthInit>
         <AppRoutes />
-      </AuthProvider>
+      </AuthInit>
     </BrowserRouter>
   )
 }

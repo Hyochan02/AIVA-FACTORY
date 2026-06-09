@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/common/Button'
 import { Badge } from '../components/common/Badge'
 import { Toggle } from '../components/common/Toggle'
-import { useAuth } from '../context/AuthContext'
-import { updateMe, changePassword } from '../api/auth'
-import { getNotificationSettings, updateNotificationSettings } from '../api/notifications'
-import type { NotificationSettings } from '../api/notifications'
-import { getCredits } from '../api/credits'
-import { getCurrentSubscription } from '../api/subscriptions'
+import { useAuthStore } from '../stores/authStore'
+import { putMe } from '../api/auth/putMe'
+import { putPassword } from '../api/auth/putPassword'
+import { getNotificationSettings } from '../api/notifications/getNotificationSettings'
+import { updateNotificationSettings } from '../api/notifications/updateNotificationSettings'
+import type { NotificationSettings } from '../types/notification'
+import { getCredits } from '../api/credits/getCredits'
+import { getCurrentSubscription } from '../api/subscriptions/getCurrentSubscription'
 
 type Tab = 'account' | 'notification' | 'security' | 'subscription'
 
@@ -28,7 +30,8 @@ const NOTIFICATION_META = [
 ]
 
 const Profile: React.FC = () => {
-  const { user, refreshUser } = useAuth()
+  const user        = useAuthStore((s) => s.user)
+  const refreshUser = useAuthStore((s) => s.refreshUser)
   const navigate              = useNavigate()
   const [tab, setTab]         = useState<Tab>('account')
 
@@ -46,7 +49,7 @@ const Profile: React.FC = () => {
     setSaving(true)
     setSaveMsg('')
     try {
-      await updateMe({ name })
+      await putMe({ name })
       await refreshUser()
       setSaveMsg('저장됨')
       setTimeout(() => setSaveMsg(''), 2000)
@@ -108,7 +111,7 @@ const Profile: React.FC = () => {
     if (newPw.length < 8)   { setPwError('비밀번호는 8자 이상이어야 합니다.'); return }
     setPwLoading(true)
     try {
-      await changePassword({ currentPassword: currentPw, newPassword: newPw })
+      await putPassword({ currentPassword: currentPw, newPassword: newPw })
       setPwMsg('비밀번호가 변경되었습니다.')
       setCurrentPw(''); setNewPw(''); setConfirmPw('')
       setTimeout(() => setPwMsg(''), 3000)

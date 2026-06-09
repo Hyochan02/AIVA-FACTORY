@@ -2,7 +2,7 @@ import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Coins, Plus } from 'lucide-react'
 import { Button } from '../common/Button'
-import { useAuth } from '../../context/AuthContext'
+import { useAuthStore } from '../../stores/authStore'
 
 interface TopBarProps {
   title?: string
@@ -10,7 +10,7 @@ interface TopBarProps {
 
 export const TopBar: React.FC<TopBarProps> = ({ title }) => {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const user = useAuthStore((s) => s.user)
   const credits = user?.credits ?? 0
   const initial = (user?.name ?? 'U')[0].toUpperCase()
 

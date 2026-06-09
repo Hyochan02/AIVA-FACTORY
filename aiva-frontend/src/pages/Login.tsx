@@ -1,11 +1,11 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '../components/common/Button'
-import { useAuth } from '../context/AuthContext'
+import { useAuthStore } from '../stores/authStore'
 
 const Login: React.FC = () => {
   const navigate           = useNavigate()
-  const { login }          = useAuth()
+  const login = useAuthStore((s) => s.login)
   const [email, setEmail]  = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading]   = useState(false)

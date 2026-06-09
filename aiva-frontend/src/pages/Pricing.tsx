@@ -3,9 +3,11 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/common/Button'
 import { Badge } from '../components/common/Badge'
-import { getPlans, getCurrentSubscription, subscribePlan } from '../api/subscriptions'
-import type { Plan } from '../api/subscriptions'
-import { useAuth } from '../context/AuthContext'
+import { getPlans } from '../api/subscriptions/getPlans'
+import { getCurrentSubscription } from '../api/subscriptions/getCurrentSubscription'
+import { subscribePlan } from '../api/subscriptions/subscribePlan'
+import type { Plan } from '../types/subscription'
+import { useAuthStore } from '../stores/authStore'
 
 // 플랜별 미보유 기능 (UI 전용)
 const PLAN_MISSING: Record<string, string[]> = {
@@ -22,7 +24,8 @@ const PLAN_CTA: Record<string, string> = {
 
 const Pricing: React.FC = () => {
   const navigate           = useNavigate()
-  const { user, refreshUser } = useAuth()
+  const user        = useAuthStore((s) => s.user)
+  const refreshUser = useAuthStore((s) => s.refreshUser)
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly')
   const [plans, setPlans]     = useState<Plan[]>([])
   const [currentPlan, setCurrentPlan] = useState<string>(user?.plan ?? 'free')

@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Sparkles, Library, SlidersHorizontal,
   Compass, CreditCard, User, LogOut,
 } from 'lucide-react'
-import { useAuth } from '../../context/AuthContext'
+import { useAuthStore } from '../../stores/authStore'
 import { Button } from '../common/Button'
 
 const NAV_ITEMS = [
@@ -37,7 +37,8 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
 
 export const Sidebar: React.FC = () => {
   const navigate = useNavigate()
-  const { user, logout } = useAuth()
+  const user   = useAuthStore((s) => s.user)
+  const logout = useAuthStore((s) => s.logout)
 
   return (
     <aside

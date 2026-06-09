@@ -3,16 +3,17 @@ import { Music2, Play, Heart, Flame, Mic, Search, Radio } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "../components/common/Badge";
 import { useApi } from "../hooks/useApi";
-import {
-  getTrending,
-  getRecent,
-  getCreators,
-  searchExplore,
-} from "../api/explore";
-import { followUser, unfollowUser } from "../api/users";
-import { likeTrack, unlikeTrack } from "../api/tracks";
+import { getTrending } from "../api/explore/getTrending";
+import { getRecent } from "../api/explore/getRecent";
+import { getCreators } from "../api/explore/getCreators";
+import { searchExplore } from "../api/explore/searchExplore";
+import { postFollow } from "../api/users/postFollow";
+import { deleteFollow } from "../api/users/deleteFollow";
+import { postLike } from "../api/tracks/postLike";
+import { deleteLike } from "../api/tracks/deleteLike";
 import { formatPlays, formatDuration, gradColor } from "../utils/format";
-import type { Track, PaginatedResponse } from "../types";
+import type { Track } from "../types/track";
+import type { PaginatedResponse } from "../types/api";
 
 interface Creator {
   id: string;
@@ -134,8 +135,8 @@ const Explore: React.FC = () => {
     // 낙관적 업데이트
     setLikeOverrides((prev) => ({ ...prev, [track.id]: !currentLiked }));
     try {
-      if (currentLiked) await unlikeTrack(track.id);
-      else await likeTrack(track.id);
+      if (currentLiked) await deleteLike(track.id);
+      else await postLike(track.id);
     } catch {
       // 실패 시 롤백
       setLikeOverrides((prev) => ({ ...prev, [track.id]: currentLiked }));
@@ -177,9 +178,9 @@ const Explore: React.FC = () => {
 
     try {
       if (wasFollowing) {
-        await unfollowUser(creatorId);
+        await deleteFollow(creatorId);
       } else {
-        await followUser(creatorId);
+        await postFollow(creatorId);
       }
     } catch {
       // 실패 시 원래 값으로 롤백

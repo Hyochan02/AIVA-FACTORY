@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Music2, CheckCircle2, XCircle, Piano } from "lucide-react";
-import { pollGenerateStatus } from "../api/generate";
-import type { StatusResponse, TrackVersion } from "../api/generate";
+import { pollStatus } from "../api/generate/pollStatus";
+import type { StatusResponse, TrackVersion } from "../types/generate";
 import { Button } from "../components/common/Button";
 
 const STEP_LABELS: Record<string, string> = {
@@ -31,7 +31,7 @@ const Generating: React.FC = () => {
     const poll = async () => {
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const res = (await pollGenerateStatus(trackId)) as any;
+        const res = (await pollStatus(trackId)) as any;
         const data: StatusResponse = res.data;
         setStatus(data);
 

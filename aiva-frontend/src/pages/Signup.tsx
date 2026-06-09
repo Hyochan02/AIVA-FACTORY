@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '../components/common/Button'
-import { useAuth } from '../context/AuthContext'
+import { useAuthStore } from '../stores/authStore'
 
 const USE_CASES = [
   { id: 'content',    label: '콘텐츠 제작',   emoji: '🎬' },
@@ -14,7 +14,7 @@ const USE_CASES = [
 
 const Signup: React.FC = () => {
   const navigate          = useNavigate()
-  const { register }      = useAuth()
+  const register = useAuthStore((s) => s.register)
   const [step, setStep]   = useState(1)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)

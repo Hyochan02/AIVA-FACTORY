@@ -5,9 +5,11 @@ import { Badge } from '../components/common/Badge'
 import { Button } from '../components/common/Button'
 import { Waveform } from '../components/common/Waveform'
 import { useApi } from '../hooks/useApi'
-import { getTracks, updateTrack } from '../api/tracks'
+import { getTracks } from '../api/tracks/getTracks'
+import { patchTrack } from '../api/tracks/patchTrack'
 import { formatDuration, gradColor } from '../utils/format'
-import type { Track, PaginatedResponse } from '../types'
+import type { Track } from '../types/track'
+import type { PaginatedResponse } from '../types/api'
 
 const FILTERS = ['전체', 'Lo-Fi', 'City Pop', 'Ambient', 'Synthwave', 'K-Pop', 'EDM', 'Jazz', 'Acoustic', 'Hip-Hop', 'Classical', 'R&B', 'Drum & Bass']
 type ViewMode = 'grid' | 'list'
@@ -37,7 +39,7 @@ const Library: React.FC = () => {
     try {
       // DB는 is_public (0/1), 타입 캐스팅 필요
       const currentPublic = !!(track as Track & { is_public?: number }).is_public
-      await updateTrack(track.id, { isPublic: !currentPublic })
+      await patchTrack(track.id, { isPublic: !currentPublic })
       await refetch()
     } catch {
       // 실패해도 조용히 처리

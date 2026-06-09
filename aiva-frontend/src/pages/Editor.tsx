@@ -9,21 +9,19 @@ import {
 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "../components/common/Button";
-import { getTracks } from "../api/tracks";
-import {
-  extendTrack,
-  pollExtend,
-  generateLyrics,
-  pollLyrics,
-  separateVocals,
-  pollSeparate,
-  convertWav,
-  pollWav,
-  createVideo,
-  pollVideo,
-  getJobHistory,
-} from "../api/editor";
-import type { LyricsResult, SeparateResult, JobHistory } from "../api/editor";
+import { getTracks } from "../api/tracks/getTracks";
+import { extendTrack } from "../api/editor/extendTrack";
+import { pollExtend } from "../api/editor/pollExtend";
+import { generateLyrics } from "../api/editor/generateLyrics";
+import { pollLyrics } from "../api/editor/pollLyrics";
+import { separateVocals } from "../api/editor/separateVocals";
+import { pollSeparate } from "../api/editor/pollSeparate";
+import { convertWav } from "../api/editor/convertWav";
+import { pollWav } from "../api/editor/pollWav";
+import { createVideo } from "../api/editor/createVideo";
+import { pollVideo } from "../api/editor/pollVideo";
+import { getJobHistory } from "../api/editor/getJobHistory";
+import type { LyricsResult, SeparateResult, JobHistory } from "../types/editor";
 import { useApi } from "../hooks/useApi";
 import { formatDate } from "../utils/format";
 
@@ -138,6 +136,7 @@ const Editor: React.FC = () => {
     [activeTab],
   );
   const jobHistory = historyData?.jobs ?? [];
+  const refreshHistory = () => setTimeout(() => refetchHistory(), 1000);
   const [tracks, setTracks] = useState<TrackItem[]>([]);
   const [selectedTrackId, setSelectedTrackId] = useState(initTrackId);
   const [loading, setLoading] = useState(false);
@@ -286,9 +285,6 @@ const Editor: React.FC = () => {
       setLoading(false);
     }
   };
-
-  // 작업 완료 후 히스토리 갱신
-  const refreshHistory = () => setTimeout(() => refetchHistory(), 1000);
 
   const tabInfo = TAB_INFO.find((t) => t.id === activeTab)!;
   const isPolling =

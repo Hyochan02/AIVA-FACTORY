@@ -1,10 +1,15 @@
 import { Globe, Lock, Music2, SkipBack, Play, Pause, SkipForward } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import { useAuthStore } from '../stores/authStore'
 import { Button } from '../components/common/Button'
 import { Badge } from '../components/common/Badge'
-import { getTrack, likeTrack, unlikeTrack, updateTrack, getComments, postComment } from '../api/tracks'
+import { getTrack } from '../api/tracks/getTrack'
+import { postLike } from '../api/tracks/postLike'
+import { deleteLike } from '../api/tracks/deleteLike'
+import { patchTrack } from '../api/tracks/patchTrack'
+import { getComments } from '../api/tracks/getComments'
+import { postComment } from '../api/tracks/postComment'
 
 interface Version {
   id: string; version_num: number; audio_url: string
@@ -16,7 +21,7 @@ const Player: React.FC = () => {
   const { id: trackId } = useParams<{ id: string }>()
   const [searchParams]  = useSearchParams()
   const navigate        = useNavigate()
-  const { user }        = useAuth()
+  const user = useAuthStore((s) => s.user)
   const initVersion     = Number(searchParams.get('v') ?? 1)
 
   // 트랙 데이터
@@ -142,7 +147,7 @@ const Player: React.FC = () => {
     if (!trackId || togglingVis) return
     setTogglingVis(true)
     try {
-      await updateTrack(trackId, { isPublic: !isPublic })
+      await patchTrack(trackId, { isPublic: !isPublic })
       setIsPublic(p => !p)
     } catch {
       // 실패 시 원래 상태 유지
@@ -154,8 +159,8 @@ const Player: React.FC = () => {
   const handleLike = async () => {
     if (!trackId) return
     try {
-      if (liked) { await unlikeTrack(trackId); setLiked(false); setLikeCount(p => p - 1) }
-      else       { await likeTrack(trackId);   setLiked(true);  setLikeCount(p => p + 1) }
+      if (liked) { await deleteLike(trackId); setLiked(false); setLikeCount(p => p - 1) }
+      else       { await postLike(trackId);   setLiked(true);  setLikeCount(p => p + 1) }
     } catch { /* ignore like/unlike errors */ }
   }
 

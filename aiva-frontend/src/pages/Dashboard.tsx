@@ -3,17 +3,19 @@ import { Music2, Zap, Play, Folder, Sparkles } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../components/common/Button";
 import { Badge } from "../components/common/Badge";
-import { useAuth } from "../context/AuthContext";
+import { useAuthStore } from "../stores/authStore";
 import { useApi } from "../hooks/useApi";
-import { getStats, type DashboardStats } from "../api/stats";
-import { getTracks } from "../api/tracks";
+import { getStats } from "../api/stats/getStats";
+import { getTracks } from "../api/tracks/getTracks";
 import {
   formatDuration,
   formatPlays,
   formatDate,
   gradColor,
 } from "../utils/format";
-import type { Track, PaginatedResponse } from "../types";
+import type { DashboardStats } from "../types/stats";
+import type { Track } from "../types/track";
+import type { PaginatedResponse } from "../types/api";
 
 const QUICK_GENRES = [
   "Lo-Fi",
@@ -41,7 +43,7 @@ const StatSkeleton = () => (
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const user = useAuthStore((s) => s.user);
   // ── API 호출 ────────────────────────────────────────────
   const { data: statsData, loading: statsLoading } = useApi<DashboardStats>(
     () => getStats(),

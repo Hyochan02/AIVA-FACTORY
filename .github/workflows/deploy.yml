@@ -89,8 +89,8 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           source: "aiva-backend/nginx/nginx.conf"
-          target: "/home/ubuntu/aiva-factory/nginx/nginx.conf"
-          strip_components: 3
+          target: "/home/ubuntu/aiva-factory/nginx/"
+          strip_components: 2
 
       # ── 9. EC2 SSH 접속 → Docker 재시작 ───────────────────
       - name: Deploy on EC2

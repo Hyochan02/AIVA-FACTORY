@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { Music2, Play, Heart, Flame, Mic, Search, Radio } from "lucide-react";
+import { Music2, Play, Flame, Mic, Search, Radio } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "../components/common/Badge";
 import { useGetTrending } from "../hooks/queries/useGetTrending";
@@ -10,8 +10,10 @@ import { usePostLike } from "../hooks/mutations/usePostLike";
 import { useDeleteLike } from "../hooks/mutations/useDeleteLike";
 import { usePostFollow } from "../hooks/mutations/usePostFollow";
 import { useDeleteFollow } from "../hooks/mutations/useDeleteFollow";
-import { formatPlays, formatDuration, gradColor } from "../utils/format";
+import { formatDuration, gradColor } from "../utils/format";
 import { useDebounce } from "../hooks/useDebounce";
+import { TrackRow } from "../components/tracks/TrackRow";
+import { CreatorCard } from "../components/explore/CreatorCard";
 import type { Track } from "../types/track";
 
 interface Creator {
@@ -335,38 +337,14 @@ const Explore: React.FC = () => {
                   크리에이터 정보를 불러오는 중...
                 </p>
               )}
-              {localCreators.map((c) => {
-                const isFollowing = !!c.is_following;
-                const isLoading = followLoading === c.id;
-                const initial = [...c.name][0]?.toUpperCase() ?? "?";
-                return (
-                  <div
-                    key={c.id}
-                    className="flex items-center gap-3 p-2 rounded-xl bg-[#080c2a]/60 border border-white/5 hover:border-indigo-500/30 transition-all"
-                  >
-                    <div className={`w-10 h-10 rounded-full bg-linear-to-br ${gradColor(c.id)} flex items-center justify-center text-white font-bold shrink-0`}>
-                      {initial}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-white truncate">@{c.name}</div>
-                      <div className="text-xs text-slate-400">
-                        {c.track_count}개 트랙 · 팔로워 {formatPlays(c.followers)}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleFollow(c.id)}
-                      disabled={isLoading}
-                      className={`px-2.5 py-1 mr-1 text-xs font-semibold rounded-full border transition-all ${
-                        isFollowing
-                          ? "bg-indigo-600/20 border-indigo-500/60 text-indigo-300"
-                          : "border-indigo-500/40 text-indigo-300 hover:bg-indigo-600/20"
-                      } ${isLoading ? "opacity-50" : ""}`}
-                    >
-                      {isLoading ? "..." : isFollowing ? "팔로잉" : "팔로우"}
-                    </button>
-                  </div>
-                );
-              })}
+              {localCreators.map((c) => (
+                <CreatorCard
+                  key={c.id}
+                  creator={c}
+                  onFollow={handleFollow}
+                  isLoading={followLoading === c.id}
+                />
+              ))}
             </div>
           </div>
         </div>
@@ -374,49 +352,5 @@ const Explore: React.FC = () => {
     </div>
   );
 };
-
-interface TrackRowProps {
-  track: Track;
-  rank: number;
-  onPlay: () => void;
-  isLiked?: boolean;
-  onLike?: (e: React.MouseEvent, track: Track & { is_liked?: number }) => void;
-}
-const TrackRow: React.FC<TrackRowProps> = ({
-  track,
-  rank,
-  onPlay,
-  isLiked = false,
-  onLike,
-}) => (
-  <div
-    className="flex items-center gap-4 p-3 rounded-md bg-[#080c2a]/60 border border-white/5 hover:border-indigo-500/30 transition-all cursor-pointer group"
-    onClick={onPlay}
-  >
-    <span className="w-5 text-sm font-black text-slate-500 text-center shrink-0">{rank}</span>
-    <div className="flex-1 min-w-0">
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-semibold text-white truncate">{track.title}</span>
-        <span className="text-xs text-slate-500 shrink-0">{formatDuration(track.duration)}</span>
-        <span className="text-xs text-slate-500 shrink-0">{formatPlays(track.plays)}회 재생</span>
-        <button
-          className={`transition-all shrink-0 ${isLiked ? "text-rose-400" : "opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-400"}`}
-          onClick={(e) => onLike?.(e, track as Track & { is_liked?: number })}
-        >
-          <Heart size={13} fill={isLiked ? "currentColor" : "none"} />
-        </button>
-      </div>
-      <div className="flex items-center gap-1.5 mt-1">
-        <Badge variant="info">{track.genre}</Badge>
-        {(track as Track & { mood?: string }).mood && (
-          <Badge variant="info">{(track as Track & { mood?: string }).mood}</Badge>
-        )}
-      </div>
-    </div>
-    <div className={`w-10 h-10 rounded-xl bg-linear-to-br ${gradColor(track.id)} flex items-center justify-center text-white shrink-0`}>
-      <Play size={15} fill="currentColor" />
-    </div>
-  </div>
-);
 
 export default Explore;

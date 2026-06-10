@@ -224,11 +224,23 @@ const Landing: React.FC = () => (
           <div key={col.h}>
             <h5 className="text-xs font-bold uppercase tracking-widest text-slate-300 mb-3">{col.h}</h5>
             {col.links.map(l => (
-              <div key={l} className="text-sm text-slate-400 hover:text-white py-1 cursor-pointer transition-colors">{l}</div>
+              col.h === '회사' && l === '소개' ? (
+                <Link key={l} to="/pitch" className="block text-sm text-slate-400 hover:text-white py-1 transition-colors">{l}</Link>
+              ) : (
+                <div key={l} className="text-sm text-slate-400 hover:text-white py-1 cursor-pointer transition-colors">{l}</div>
+              )
             ))}
           </div>
         ))}
       </div>
+      <div className="max-w-7xl mx-auto mt-10 pt-6 border-t border-[rgba(129,140,248,0.1)] text-xs text-slate-500">
+        © 2026 AIVA FACTORY. All rights reserved.
+      </div>
+    </footer>
+  </div>
+)
+
+export default Landing
       <div className="max-w-7xl mx-auto mt-10 pt-6 border-t border-[rgba(129,140,248,0.1)] text-xs text-slate-500">
         © 2026 AIVA FACTORY. All rights reserved.
       </div>

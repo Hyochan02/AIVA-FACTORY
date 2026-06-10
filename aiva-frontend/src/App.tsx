@@ -26,6 +26,7 @@ const Library        = React.lazy(() => import('./pages/Library'))
 const Player         = React.lazy(() => import('./pages/Player'))
 const Explore        = React.lazy(() => import('./pages/Explore'))
 const Pricing        = React.lazy(() => import('./pages/Pricing'))
+const Pitch          = React.lazy(() => import('./pages/Pitch'))
 const Profile        = React.lazy(() => import('./pages/Profile'))
 
 const PageLoader = () => (
@@ -62,6 +63,7 @@ function AppRoutes() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password"  element={<ResetPassword />} />
         <Route path="/pricing"         element={<AppLayout title="요금제"><Pricing /></AppLayout>} />
+        <Route path="/pitch"           element={<Pitch />} />
 
         {/* 프라이빗 라우트 */}
         <Route path="/dashboard" element={<PrivateRoute><AppLayout title="대시보드"><Dashboard /></AppLayout></PrivateRoute>} />

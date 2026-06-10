@@ -241,11 +241,3 @@ const Landing: React.FC = () => (
 )
 
 export default Landing
-      <div className="max-w-7xl mx-auto mt-10 pt-6 border-t border-[rgba(129,140,248,0.1)] text-xs text-slate-500">
-        © 2026 AIVA FACTORY. All rights reserved.
-      </div>
-    </footer>
-  </div>
-)
-
-export default Landing

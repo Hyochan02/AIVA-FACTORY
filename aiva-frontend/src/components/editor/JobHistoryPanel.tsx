@@ -1,14 +1,12 @@
 import React from 'react'
-import { Music2, FileText, Mic, HardDrive, Film } from 'lucide-react'
+import { Mic, HardDrive, Film } from 'lucide-react'
 import { formatDate } from '../../utils/format'
 import type { JobHistory } from '../../types/editor'
 
 const TYPE_META: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  extend:   { label: '음악 연장',  color: 'text-violet-300',  icon: <Music2 size={13} /> },
-  lyrics:   { label: '가사 생성',  color: 'text-blue-300',    icon: <FileText size={13} /> },
-  separate: { label: '보컬 분리',  color: 'text-pink-300',    icon: <Mic size={13} /> },
-  wav:      { label: 'WAV 변환',   color: 'text-emerald-300', icon: <HardDrive size={13} /> },
-  video:    { label: '뮤직비디오', color: 'text-orange-300',  icon: <Film size={13} /> },
+  separate: { label: '보컬/악기 분리', color: 'text-pink-300',    icon: <Mic size={13} /> },
+  wav:      { label: 'WAV 변환',       color: 'text-emerald-300', icon: <HardDrive size={13} /> },
+  video:    { label: '뮤직비디오',     color: 'text-orange-300',  icon: <Film size={13} /> },
 }
 
 const STATUS_DOT: Record<string, string> = {

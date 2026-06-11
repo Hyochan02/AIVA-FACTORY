@@ -1,31 +1,30 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  Music2,
-  FileText,
-  Mic,
+  SlidersHorizontal,
+  RefreshCw,
   HardDrive,
   Film,
   ChevronDown,
+  Loader2,
 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "../components/common/Button";
 import { getTracks } from "../api/tracks/getTracks";
-import { pollExtend } from "../api/editor/pollExtend";
-import { pollLyrics } from "../api/editor/pollLyrics";
 import { pollSeparate } from "../api/editor/pollSeparate";
 import { pollWav } from "../api/editor/pollWav";
 import { pollVideo } from "../api/editor/pollVideo";
-import { useExtendTrack } from "../hooks/mutations/useExtendTrack";
-import { useGenerateLyrics } from "../hooks/mutations/useGenerateLyrics";
 import { useSeparateVocals } from "../hooks/mutations/useSeparateVocals";
 import { useConvertWav } from "../hooks/mutations/useConvertWav";
 import { useCreateVideo } from "../hooks/mutations/useCreateVideo";
 import { useGetJobHistory } from "../hooks/queries/useGetJobHistory";
+import { useGetStems } from "../hooks/queries/useGetStems";
 import { useQueryClient } from "@tanstack/react-query";
-import type { LyricsResult, SeparateResult, JobHistory } from "../types/editor";
+import type { SeparateResult, JobHistory } from "../types/editor";
 import { JobHistoryPanel } from "../components/editor/JobHistoryPanel";
+import { StemMixer } from "../components/editor/StemMixer";
+import { STEM_LABELS } from "../constants/stemLabels";
 
-type Tab = "extend" | "lyrics" | "separate" | "wav" | "video";
+type Tab = "mixer" | "separate" | "wav" | "video";
 
 interface TrackItem {
   id: string;
@@ -84,25 +83,11 @@ const TAB_INFO: {
   credit: number;
 }[] = [
   {
-    id: "extend",
-    label: "음악 연장",
-    icon: React.createElement(Music2, { size: 15 }),
-    desc: "기존 트랙을 이어서 연장합니다",
-    credit: 4,
-  },
-  {
-    id: "lyrics",
-    label: "가사 생성",
-    icon: React.createElement(FileText, { size: 15 }),
-    desc: "AI로 가사를 자동 생성합니다",
-    credit: 2,
-  },
-  {
-    id: "separate",
-    label: "보컬 분리",
-    icon: React.createElement(Mic, { size: 15 }),
-    desc: "보컬과 반주를 분리합니다",
-    credit: 10,
+    id: "mixer",
+    label: "믹서 / 편집",
+    icon: React.createElement(SlidersHorizontal, { size: 15 }),
+    desc: "트랙별 볼륨·뮤트·솔로를 조절해 즉시 편집·분리하고, 마음에 드는 믹스를 저장합니다",
+    credit: 0,
   },
   {
     id: "wav",
@@ -118,6 +103,13 @@ const TAB_INFO: {
     desc: "MP4 비디오를 자동 생성합니다",
     credit: 5,
   },
+  {
+    id: "separate",
+    label: "고급 분리 (다시 생성)",
+    icon: React.createElement(RefreshCw, { size: 15 }),
+    desc: "위 믹서로 부족할 때, 더 많은 악기 조합으로 스템 파일을 새로 생성합니다",
+    credit: 10,
+  },
 ];
 
 const Editor: React.FC = () => {
@@ -125,10 +117,14 @@ const Editor: React.FC = () => {
   const initTrackId = searchParams.get("trackId") ?? "";
   const queryClient = useQueryClient();
 
-  const [activeTab, setActiveTab] = useState<Tab>("extend");
+  // 기본 탭: 악곡을 선택하면 가장 먼저 "믹서/편집" 탭을 보여준다.
+  // 보컬 음소거 = 분리 등, 믹서 조절 자체가 1차 편집 수단이기 때문이다.
+  // 나머지(WAV 변환 / 뮤직비디오 / 고급 분리)는 부가 기능 탭으로 배치한다.
+  const [activeTab, setActiveTab] = useState<Tab>("mixer");
 
+  // "믹서" 탭은 작업 히스토리가 없는 탭이므로 전체 타입(undefined)을 조회한다.
   const { data: historyData, isLoading: historyLoading } = useGetJobHistory(
-    activeTab as JobHistory["type"],
+    activeTab === "mixer" ? undefined : (activeTab as JobHistory["type"]),
   );
   const jobHistory = historyData?.jobs ?? [];
 
@@ -145,34 +141,13 @@ const Editor: React.FC = () => {
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
+  // 선택한 트랙의 악기별 스템(자동 분리 결과) — 믹서 UI에 전달
+  const { data: stems } = useGetStems(selectedTrackId);
+
   // ── 뮤테이션 훅 ──
-  const { mutate: extendMutate } = useExtendTrack();
-  const { mutate: lyricsMutate } = useGenerateLyrics();
   const { mutate: separateMutate } = useSeparateVocals();
   const { mutate: wavMutate } = useConvertWav();
   const { mutate: videoMutate } = useCreateVideo();
-
-  // ── extend ────
-  const [extendPrompt, setExtendPrompt] = useState("");
-  const [extendStyle, setExtendStyle] = useState("");
-  const [continueAt, setContinueAt] = useState(60);
-  const [extendResult, setExtendResult] = useState<{ audioUrl: string } | null>(null);
-  const extendPoller = usePoller<{ audioUrl: string }>(pollExtend, (d) => {
-    setExtendResult(d);
-    setLoading(false);
-    setSuccessMsg("음악이 연장되었습니다!");
-    refreshHistory();
-  });
-
-  // ── lyrics ────
-  const [lyricsPrompt, setLyricsPrompt] = useState("");
-  const [lyricsResult, setLyricsResult] = useState<LyricsResult | null>(null);
-  const lyricsPoller = usePoller<LyricsResult>((id) => pollLyrics(id), (d) => {
-    setLyricsResult(d);
-    setLoading(false);
-    setSuccessMsg("가사가 생성되었습니다!");
-    refreshHistory();
-  });
 
   // ── separate ──
   const [separateType, setSeparateType] = useState<"separate_vocal" | "split_stem">("separate_vocal");
@@ -185,7 +160,6 @@ const Editor: React.FC = () => {
   });
 
   // ── wav ───────
-  const [wavVersion, setWavVersion] = useState(1);
   const [wavUrl, setWavUrl] = useState("");
   const wavPoller = usePoller<{ wavUrl: string }>((id) => pollWav(id), (d) => {
     setWavUrl(d.wavUrl ?? "");
@@ -217,7 +191,7 @@ const Editor: React.FC = () => {
   const clearMessages = () => { setError(""); setSuccessMsg(""); };
 
   const handleAction = () => {
-    if (!selectedTrackId && activeTab !== "lyrics") {
+    if (!selectedTrackId) {
       setError("트랙을 선택해주세요.");
       return;
     }
@@ -229,26 +203,8 @@ const Editor: React.FC = () => {
       setLoading(false);
     };
 
-    if (activeTab === "extend") {
-      extendMutate(
-        { trackId: selectedTrackId, prompt: extendPrompt, style: extendStyle, continueAt },
-        {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          onSuccess: (data: any) => extendPoller.start(data.jobId),
-          onError,
-        },
-      );
-    } else if (activeTab === "lyrics") {
-      if (!lyricsPrompt.trim()) { setError("가사 주제를 입력하세요."); setLoading(false); return; }
-      lyricsMutate(
-        { prompt: lyricsPrompt },
-        {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          onSuccess: (data: any) => lyricsPoller.start(data.jobId),
-          onError,
-        },
-      );
-    } else if (activeTab === "separate") {
+    if (activeTab === "separate") {
+      setSeparateResult(null);
       separateMutate(
         { trackId: selectedTrackId, type: separateType },
         {
@@ -259,7 +215,7 @@ const Editor: React.FC = () => {
       );
     } else if (activeTab === "wav") {
       wavMutate(
-        { trackId: selectedTrackId, versionNum: wavVersion },
+        { trackId: selectedTrackId },
         {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           onSuccess: (data: any) => wavPoller.start(data.jobId),
@@ -279,9 +235,9 @@ const Editor: React.FC = () => {
   };
 
   const tabInfo = TAB_INFO.find((t) => t.id === activeTab)!;
+  const currentCredit =
+    activeTab === "separate" ? (separateType === "split_stem" ? 50 : 10) : tabInfo.credit;
   const isPolling =
-    (activeTab === "extend" && extendPoller.polling) ||
-    (activeTab === "lyrics" && lyricsPoller.polling) ||
     (activeTab === "separate" && separatePoller.polling) ||
     (activeTab === "wav" && wavPoller.polling) ||
     (activeTab === "video" && videoPoller.polling);
@@ -301,7 +257,11 @@ const Editor: React.FC = () => {
           >
             <span>{t.icon}</span>
             <span>{t.label}</span>
-            <span className="text-xs opacity-60">({t.credit}크)</span>
+            {t.id !== "mixer" && (
+              <span className="text-xs opacity-60">
+                ({t.id === "separate" ? "10~50" : t.credit}크)
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -313,76 +273,55 @@ const Editor: React.FC = () => {
               <span className="text-indigo-300">{tabInfo.icon}</span>
               <div>
                 <h2 className="text-base font-black text-white">{tabInfo.label}</h2>
-                <p className="text-xs text-slate-400">{tabInfo.desc} · 크레딧 {tabInfo.credit}개 소모</p>
+                <p className="text-xs text-slate-400">
+                  {tabInfo.desc}
+                  {activeTab !== "mixer" && ` · 크레딧 ${currentCredit}개 소모`}
+                </p>
               </div>
             </div>
           </div>
 
-          {activeTab !== "lyrics" && (
-            <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-5">
-              <label className="block text-sm font-bold text-white mb-3">대상 트랙 선택</label>
-              {tracks.length === 0 ? (
-                <p className="text-slate-500 text-sm">완료된 트랙이 없습니다. 먼저 음악을 생성해주세요.</p>
-              ) : (
-                <div className="relative">
-                  <select
-                    value={selectedTrackId}
-                    onChange={(e) => setSelectedTrackId(e.target.value)}
-                    className="w-full appearance-none bg-[#080c2a] border border-primary-soft rounded-md px-4 py-2.5 pr-10 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer"
-                  >
-                    {tracks.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.title} {t.genre ? `(${t.genre})` : ""}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                </div>
-              )}
-            </div>
-          )}
+          <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-5">
+            <label className="block text-sm font-bold text-white mb-3">대상 트랙 선택</label>
+            {tracks.length === 0 ? (
+              <p className="text-slate-500 text-sm">완료된 트랙이 없습니다. 먼저 음악을 생성해주세요.</p>
+            ) : (
+              <div className="relative">
+                <select
+                  value={selectedTrackId}
+                  onChange={(e) => setSelectedTrackId(e.target.value)}
+                  className="w-full appearance-none bg-[#080c2a] border border-primary-soft rounded-md px-4 py-2.5 pr-10 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer"
+                >
+                  {tracks.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.title} {t.genre ? `(${t.genre})` : ""}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+            )}
+          </div>
 
-          {activeTab === "extend" && (
-            <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-5 space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-white mb-2">연장 시작 위치 (초)</label>
-                <input
-                  type="number" min={0} max={300} value={continueAt}
-                  onChange={(e) => setContinueAt(Number(e.target.value))}
-                  className="w-32 bg-[#080c2a] border border-primary-soft rounded-md px-4 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-                />
-                <p className="text-xs text-slate-500 mt-1">기존 트랙의 이 위치부터 이어서 생성합니다</p>
+          {/* 악곡을 선택하면 가장 먼저 보여주는 화면.
+              생성 완료 시 백엔드가 자동으로 split_stem을 요청해두므로,
+              대부분의 경우 트랙 선택 즉시 믹서가 바로 표시된다.
+              → 보컬을 음소거하면 반주만 남는 등, "악기 분리"는 별도 기능이 아니라
+                이 믹서의 볼륨/뮤트/솔로 조절 자체로 충족된다. 조절한 값은
+                "믹스 저장"으로 서버에 보관해 다음에 다시 불러올 수 있다. */}
+          {activeTab === "mixer" && (
+            stems && stems.length > 0 ? (
+              <StemMixer stems={stems} trackId={selectedTrackId} />
+            ) : selectedTrackId ? (
+              <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-5 flex items-center gap-2 text-sm text-slate-400">
+                <Loader2 size={14} className="animate-spin" />
+                악기별 스템을 분리하는 중입니다. 완료되면 이 화면에 믹서가 표시됩니다. (최대 1~2분 소요)
               </div>
-              <div>
-                <label className="block text-sm font-bold text-white mb-2">추가 프롬프트 (선택)</label>
-                <textarea
-                  value={extendPrompt} onChange={(e) => setExtendPrompt(e.target.value)}
-                  placeholder="예: 더 신나게, 기타 솔로 추가..." rows={3}
-                  className="w-full bg-[#080c2a] border border-primary-soft rounded-md px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 resize-none"
-                />
+            ) : (
+              <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-5 text-sm text-slate-400">
+                먼저 위에서 편집할 악곡을 선택해주세요.
               </div>
-              <div>
-                <label className="block text-sm font-bold text-white mb-2">스타일 (선택)</label>
-                <input
-                  value={extendStyle} onChange={(e) => setExtendStyle(e.target.value)}
-                  placeholder="예: jazz, upbeat, electronic..."
-                  className="w-full bg-[#080c2a] border border-primary-soft rounded-md px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-            </div>
-          )}
-
-          {activeTab === "lyrics" && (
-            <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-5">
-              <label className="block text-sm font-bold text-white mb-2">
-                가사 주제 / 컨셉 <span className="text-indigo-400">*</span>
-              </label>
-              <textarea
-                value={lyricsPrompt} onChange={(e) => setLyricsPrompt(e.target.value)}
-                placeholder="예: 비 오는 서울 밤, 이별의 감성, 재즈 발라드 스타일..." rows={4}
-                className="w-full bg-[#080c2a] border border-primary-soft rounded-md px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 resize-none"
-              />
-            </div>
+            )
           )}
 
           {activeTab === "separate" && (
@@ -414,19 +353,7 @@ const Editor: React.FC = () => {
 
           {activeTab === "wav" && (
             <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-5">
-              <label className="block text-sm font-bold text-white mb-3">변환할 버전</label>
-              <div className="flex gap-3">
-                {[1, 2].map((v) => (
-                  <button
-                    key={v} onClick={() => setWavVersion(v)}
-                    className={`px-4 py-2 rounded-xl border text-sm font-bold transition-all ${
-                      wavVersion === v ? "bg-indigo-600/20 border-indigo-500/60 text-indigo-300" : "border-primary-soft text-slate-400"
-                    }`}
-                  >
-                    버전 {v}
-                  </button>
-                ))}
-              </div>
+              <p className="text-sm text-slate-400">선택한 트랙을 고음질 WAV 파일로 변환합니다.</p>
               <p className="text-xs text-slate-500 mt-2">WAV 파일은 15일간 보관됩니다</p>
             </div>
           )}
@@ -445,35 +372,36 @@ const Editor: React.FC = () => {
             <div className="bg-green-900/30 border border-green-700/40 rounded-xl p-4 text-sm text-green-300">{successMsg}</div>
           )}
 
-          <Button
-            variant="primary" size="lg" fullWidth onClick={handleAction}
-            disabled={loading || isPolling || (activeTab !== "lyrics" && !selectedTrackId)}
-          >
-            {isPolling ? (
-              <span className="flex items-center gap-2">
-                <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                처리 중... (완료까지 30~120초)
-              </span>
-            ) : loading ? "요청 중..." : (
-              <span className="flex items-center gap-1.5">
-                {tabInfo.icon} {tabInfo.label} 시작
-              </span>
-            )}
-          </Button>
+          {/* 믹서 탭은 자체 "믹스 저장/다운로드" 버튼을 쓰므로 별도 액션 버튼이 필요 없다 */}
+          {activeTab !== "mixer" && (
+            <Button
+              variant="primary" size="lg" fullWidth onClick={handleAction}
+              disabled={loading || isPolling || !selectedTrackId}
+            >
+              {isPolling ? (
+                <span className="flex items-center gap-2">
+                  <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  처리 중... (완료까지 30~120초)
+                </span>
+              ) : loading ? "요청 중..." : (
+                <span className="flex items-center gap-1.5">
+                  {tabInfo.icon} {tabInfo.label} 시작
+                </span>
+              )}
+            </Button>
+          )}
         </div>
 
         <div className="space-y-3">
           <JobHistoryPanel
-            title={tabInfo.label}
+            title={activeTab === "mixer" ? "최근 작업" : tabInfo.label}
             jobs={jobHistory}
             isLoading={historyLoading}
           />
         </div>
       </div>
 
-      {((activeTab === "extend" && extendResult) ||
-        (activeTab === "lyrics" && lyricsResult?.status === "done") ||
-        (activeTab === "separate" && separateResult?.status === "done") ||
+      {((activeTab === "separate" && separateResult?.status === "done") ||
         (activeTab === "wav" && wavUrl) ||
         (activeTab === "video" && videoUrl)) && (
         <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-6">
@@ -484,48 +412,21 @@ const Editor: React.FC = () => {
             결과
           </h3>
 
-          {activeTab === "extend" && extendResult && (
-            <div className="space-y-3">
-              <p className="text-xs text-emerald-400 font-semibold">✓ 음악 연장 완료</p>
-              <audio controls src={extendResult.audioUrl} className="w-full" />
-              <a href={extendResult.audioUrl} download className="inline-flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12l7 7 7-7" /></svg>
-                다운로드
-              </a>
-            </div>
-          )}
-
-          {activeTab === "lyrics" && lyricsResult?.status === "done" && (
-            <div className="space-y-3">
-              {lyricsResult.title && <p className="text-base font-bold text-white">{lyricsResult.title}</p>}
-              <pre className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed bg-navy-800/30 rounded-xl p-4 max-h-80 overflow-y-auto">
-                {lyricsResult.text}
-              </pre>
-              <button
-                onClick={() => navigator.clipboard.writeText(lyricsResult.text ?? "")}
-                className="inline-flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300"
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-                </svg>
-                클립보드에 복사
-              </button>
-            </div>
-          )}
-
           {activeTab === "separate" && separateResult?.status === "done" && (
-            <div className="grid sm:grid-cols-2 gap-4">
-              {[
-                { label: "보컬", url: separateResult.vocalUrl },
-                { label: "반주", url: separateResult.instrumentalUrl },
-                { label: "드럼", url: separateResult.drumsUrl },
-                { label: "베이스", url: separateResult.bassUrl },
-              ].filter((t) => t.url).map((track) => (
-                <div key={track.label} className="bg-navy-800/30 rounded-xl p-3 space-y-2">
-                  <p className="text-xs font-semibold text-slate-300">{track.label}</p>
-                  <audio controls src={track.url!} className="w-full" />
-                </div>
-              ))}
+            <div className="space-y-3">
+              <div className="grid sm:grid-cols-2 gap-4">
+                {Object.entries(separateResult.stems ?? {}).map(([stemType, url]) => (
+                  <div key={stemType} className="bg-navy-800/30 rounded-xl p-3 space-y-2">
+                    <p className="text-xs font-semibold text-slate-300">{STEM_LABELS[stemType] ?? stemType}</p>
+                    <audio controls src={url} className="w-full" />
+                  </div>
+                ))}
+              </div>
+              {separateType === "split_stem" && (
+                <p className="text-xs text-slate-500">
+                  분리된 악기들은 라이브러리의 트랙 상세 → 믹서에서 함께 재생하고 볼륨을 조절할 수 있습니다.
+                </p>
+              )}
             </div>
           )}
 

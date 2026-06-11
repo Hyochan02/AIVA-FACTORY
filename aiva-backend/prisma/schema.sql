@@ -44,6 +44,11 @@ CREATE TABLE IF NOT EXISTS user_preferences (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ── 트랙 ──────────────────────────────────────────────────
+-- Suno는 1회 생성 요청당 2개의 버전(variation)을 반환한다.
+-- 각 버전은 독립적인 "곡"으로 취급한다 (좋아요/댓글/공개여부/믹싱을
+-- 각자 가질 수 있도록 1버전=1 tracks row로 저장).
+-- 같은 생성 요청에서 나온 두 트랙은 suno_task_id 값이 동일하므로
+-- 이 값을 "다른 버전" 찾기용 그룹 키로 사용한다.
 CREATE TABLE IF NOT EXISTS tracks (
   id            VARCHAR(36)  PRIMARY KEY,
   user_id       VARCHAR(36)  NOT NULL,
@@ -54,8 +59,11 @@ CREATE TABLE IF NOT EXISTS tracks (
   bpm           SMALLINT UNSIGNED,
   duration      SMALLINT UNSIGNED,               -- 초 단위
   status        ENUM('pending','generating','done','error') DEFAULT 'pending',
-  suno_task_id  VARCHAR(255),
+  suno_task_id  VARCHAR(255),                     -- Suno 생성 작업 ID (버전1·2가 동일 값 공유)
+  suno_audio_id VARCHAR(255),                     -- Suno 버전별 오디오 ID (split_stem/wav/video 호출 시 사용)
+  version_num   TINYINT NOT NULL DEFAULT 1,       -- 1 또는 2 (Suno가 반환한 버전 순번)
   audio_url     VARCHAR(500),
+  stream_url    VARCHAR(500),                     -- 생성 중 미리듣기용 스트리밍 URL
   cover_url     VARCHAR(500),
   is_public     TINYINT(1) DEFAULT 0,
   play_count    INT UNSIGNED DEFAULT 0,
@@ -69,15 +77,18 @@ CREATE TABLE IF NOT EXISTS tracks (
   INDEX idx_suno_task (suno_task_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ── 트랙 버전 (Suno는 1회 요청 시 2버전 생성) ──────────────
-CREATE TABLE IF NOT EXISTS track_versions (
+-- ── 악기별 스템(Stem) ────────────────────────────────────
+-- Suno split_stem API 결과(최대 12개 악기 트랙)를 트랙(버전)별로 저장.
+-- 곡 생성이 완료되면 자동으로 split_stem을 호출해 모든 스템을 채운다.
+CREATE TABLE IF NOT EXISTS track_stems (
   id          VARCHAR(36)  PRIMARY KEY,
   track_id    VARCHAR(36)  NOT NULL,
-  version_num TINYINT      NOT NULL,             -- 1, 2
+  stem_type   ENUM('vocals','backing_vocals','drums','bass','guitar','keyboard',
+                    'percussion','strings','synth','fx','brass','woodwinds','instrumental') NOT NULL,
   audio_url   VARCHAR(500) NOT NULL,
-  duration    SMALLINT UNSIGNED,
   created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE,
+  UNIQUE KEY uq_track_stem (track_id, stem_type),
   INDEX idx_track_id (track_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -183,23 +194,13 @@ INSERT IGNORE INTO credit_history (id, user_id, type, amount, balance, descripti
 INSERT IGNORE INTO notification_settings (user_id) VALUES ('dev-user-001');
 
 -- ─────────────────────────────────────────────────────────
--- 마이그레이션: track_versions 컬럼 추가 (v2)
--- 이미 컬럼이 있으면 무시 (IF NOT EXISTS 미지원 → 에러 무시)
--- ─────────────────────────────────────────────────────────
-ALTER TABLE track_versions
-  ADD COLUMN IF NOT EXISTS suno_audio_id VARCHAR(255),
-  ADD COLUMN IF NOT EXISTS stream_url    VARCHAR(500),
-  ADD COLUMN IF NOT EXISTS image_url     VARCHAR(500),
-  ADD COLUMN IF NOT EXISTS title         VARCHAR(255);
-
--- ─────────────────────────────────────────────────────────
--- Suno 비동기 작업 추적 테이블 (extend / lyrics / separate / wav / video)
+-- Suno 비동기 작업 추적 테이블 (separate / wav / video)
 -- ─────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS suno_jobs (
   id            VARCHAR(36)  PRIMARY KEY,
-  track_id      VARCHAR(36),                            -- NULL 허용 (lyrics는 트랙 무관)
-  user_id       VARCHAR(36),                            -- 소유자 (직접 저장, track 없는 경우도 대응)
-  type          ENUM('extend','lyrics','separate','wav','video') NOT NULL,
+  track_id      VARCHAR(36),                            -- 연결된 트랙(버전)
+  user_id       VARCHAR(36),                            -- 소유자 (직접 저장)
+  type          ENUM('separate','wav','video') NOT NULL,
   suno_task_id  VARCHAR(255) NOT NULL,
   status        ENUM('pending','done','error') DEFAULT 'pending',
   result_url    VARCHAR(500),

@@ -1,6 +1,6 @@
 import { Globe, Lock, Music2, SkipBack, Play, Pause, SkipForward } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 import { Button } from '../components/common/Button'
 import { Badge } from '../components/common/Badge'
@@ -11,18 +11,18 @@ import { patchTrack } from '../api/tracks/patchTrack'
 import { getComments } from '../api/tracks/getComments'
 import { postComment } from '../api/tracks/postComment'
 
+// v3: 버전별 카드 분리 — 같은 suno_task_id를 가진 "다른 버전"은
+// 각각 독립된 트랙(row)이므로, 여기서는 이동 링크 정보만 갖는다.
 interface Version {
   id: string; version_num: number; audio_url: string
-  stream_url?: string; image_url?: string; title?: string; duration?: number
+  stream_url?: string; cover_url?: string; title?: string; duration?: number; is_public?: boolean
 }
 interface Comment { id: string; user: { name: string }; content: string; created_at: string }
 
 const Player: React.FC = () => {
   const { id: trackId } = useParams<{ id: string }>()
-  const [searchParams]  = useSearchParams()
   const navigate        = useNavigate()
   const user = useAuthStore((s) => s.user)
-  const initVersion     = Number(searchParams.get('v') ?? 1)
 
   // 트랙 데이터
   const [track, setTrack]         = useState<Record<string, unknown> | null>(null)
@@ -37,7 +37,6 @@ const Player: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration]   = useState(0)
   const [volume, setVolume]       = useState(0.8)
-  const [currentVersion, setCurrentVersion] = useState(initVersion)
 
   // 인터랙션
   const [liked, setLiked]         = useState(false)
@@ -109,17 +108,16 @@ const Player: React.FC = () => {
   // 볼륨 동기화
   useEffect(() => { if (audioRef.current) audioRef.current.volume = volume }, [volume])
 
-  const currentVersion_ = versions.find(v => v.version_num === currentVersion)
-  const currentAudioUrl = currentVersion_?.audio_url ?? (track?.audio_url as string | undefined) ?? ''
-  const currentImageUrl = currentVersion_?.image_url ?? (track?.cover_url as string | undefined)
+  const currentAudioUrl = (track?.audio_url as string | undefined) ?? ''
+  const currentImageUrl = track?.cover_url as string | undefined
 
-  // Version 데이터에 duration이 있으면 audio 로드 전에도 표시
+  // 트랙 데이터에 duration이 있으면 audio 로드 전에도 표시
   useEffect(() => {
-    const vDuration = currentVersion_?.duration ?? (track?.duration as number | undefined)
+    const tDuration = track?.duration as number | undefined
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (vDuration && vDuration > 0 && !duration) setDuration(vDuration)
+    if (tDuration && tDuration > 0 && !duration) setDuration(tDuration)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentVersion_, track]) // duration 의도적으로 제외: 오디오 이벤트로 갱신된 값을 덮지 않기 위함
+  }, [track]) // duration 의도적으로 제외: 오디오 이벤트로 갱신된 값을 덮지 않기 위함
 
   const togglePlay = () => {
     const audio = audioRef.current
@@ -134,13 +132,6 @@ const Player: React.FC = () => {
     if (!audio || !dur) return
     const rect = e.currentTarget.getBoundingClientRect()
     audio.currentTime = ((e.clientX - rect.left) / rect.width) * dur
-  }
-
-  const handleVersionChange = (v: number) => {
-    const wasPlaying = isPlaying
-    if (audioRef.current) { audioRef.current.pause(); setIsPlaying(false); setCurrentTime(0) }
-    setCurrentVersion(v)
-    if (wasPlaying) setTimeout(() => { audioRef.current?.play(); setIsPlaying(true) }, 100)
   }
 
   const handleVisibilityToggle = async () => {
@@ -222,6 +213,11 @@ const Player: React.FC = () => {
                 {track?.title as string || '제목 없음'}
               </h1>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
+                {(track?.version_num as number) && (
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 border border-indigo-500/30 text-indigo-300">
+                    V{track?.version_num as number}
+                  </span>
+                )}
                 {(track?.genre as string) && <Badge variant="info">{track?.genre as string}</Badge>}
                 {(track?.mood as string)  && <Badge variant="info">{track?.mood as string}</Badge>}
                 {(track?.bpm as number)   && <span className="text-xs text-slate-400">{track?.bpm as number} BPM</span>}
@@ -262,22 +258,24 @@ const Player: React.FC = () => {
             </div>
           </div>
 
-          {/* 버전 탭 */}
-          {versions.length > 1 && (
-            <div className="flex gap-2">
-              {versions.map(v => (
-                <button
-                  key={v.version_num}
-                  onClick={() => handleVersionChange(v.version_num)}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${
-                    currentVersion === v.version_num
-                      ? 'bg-indigo-600/30 border-indigo-500/60 text-indigo-300'
-                      : 'border-primary-soft text-slate-400 hover:border-indigo-700/50'
-                  }`}
-                >
-                  v{v.version_num} {v.title ? `· ${v.title.slice(0,20)}` : ''}
-                </button>
-              ))}
+          {/* 다른 버전 — v3부터 같은 생성 요청(suno_task_id)의 다른 버전은
+              독립된 트랙(좋아요·댓글·공개여부 별도)이므로 클릭 시 해당 트랙 페이지로 이동한다. */}
+          {versions.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-bold text-slate-400">다른 버전</p>
+              <div className="flex gap-2 flex-wrap">
+                {versions.map(v => (
+                  <button
+                    key={v.id}
+                    onClick={() => navigate(`/player/${v.id}`)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-primary-soft text-slate-400 hover:border-indigo-500/60 hover:text-indigo-300 transition-all"
+                  >
+                    <span>V{v.version_num}</span>
+                    {v.title && <span className="font-normal opacity-70">· {v.title.slice(0, 20)}</span>}
+                    {!v.is_public && <Lock size={10} className="opacity-60" />}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

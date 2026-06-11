@@ -1,7 +1,8 @@
 /**
  * 트랙 라우트: /api/tracks
  * GET    /            - 내 트랙 목록 (검색·필터·페이지네이션)
- * GET    /:id         - 트랙 상세
+ * GET    /:id         - 트랙 상세 (다른 버전 목록 포함)
+ * GET    /:id/stems   - 악기별 스템(track_stems) 목록 (믹서 UI용)
  * PATCH  /:id         - 트랙 수정 (제목, 공개여부)
  * DELETE /:id         - 트랙 삭제
  * GET    /:id/download - 다운로드 URL 발급
@@ -34,14 +35,8 @@ router.get('/', async (req, res, next) => {
     if (status) { where += ' AND t.status = ?';    params.push(status) }
 
     const [items]  = await pool.query(
-      `SELECT t.id, t.user_id, t.title, t.prompt, t.genre, t.mood, t.bpm,
-              COALESCE(
-                (SELECT tv.duration FROM track_versions tv
-                 WHERE tv.track_id = t.id AND tv.duration IS NOT NULL
-                 ORDER BY tv.version_num ASC LIMIT 1),
-                t.duration
-              ) AS duration,
-              t.status, t.suno_task_id, t.audio_url, t.cover_url,
+      `SELECT t.id, t.user_id, t.title, t.prompt, t.genre, t.mood, t.bpm, t.duration,
+              t.status, t.suno_task_id, t.version_num, t.audio_url, t.stream_url, t.cover_url,
               t.is_public, t.play_count AS plays, t.like_count AS likes, t.created_at, t.updated_at
        FROM tracks t ${where}
        ORDER BY t.${safeSort} ${safeOrder} LIMIT ? OFFSET ?`,
@@ -66,7 +61,22 @@ router.get('/:id', async (req, res, next) => {
         res.status(403).json({ success: false, error: '접근 권한이 없습니다.' }); return
       }
 
-      const [versions] = await conn.query('SELECT * FROM track_versions WHERE track_id = ? ORDER BY version_num', [req.params.id])
+      // "다른 버전" 조회: v3부터는 같은 생성 요청(suno_task_id)에서 나온
+      // 버전들이 각각 독립된 tracks row 이므로, 같은 suno_task_id를 가진
+      // 자기 자신을 제외한 트랙들을 "다른 버전"으로 노출한다.
+      // 소유자가 아니면 비공개 버전은 제외한다.
+      let versions: Record<string, unknown>[] = []
+      if (track.suno_task_id) {
+        const [vRows] = await conn.query(
+          `SELECT id, version_num, title, audio_url, stream_url, cover_url, duration, is_public
+           FROM tracks WHERE suno_task_id = ? AND id != ? ORDER BY version_num`,
+          [track.suno_task_id, req.params.id]
+        )
+        versions = (vRows as Record<string, unknown>[]).filter(
+          v => track.user_id === req.user!.id || v.is_public
+        )
+      }
+
       const [[likeCount]] = await conn.query('SELECT COUNT(*) as c FROM likes WHERE track_id = ?', [req.params.id]) as unknown[][]
       const [myLikeRows]  = await conn.query('SELECT 1 FROM likes WHERE track_id = ? AND user_id = ?', [req.params.id, req.user!.id]) as unknown[][]
 
@@ -80,6 +90,25 @@ router.get('/:id', async (req, res, next) => {
         isLiked: (myLikeRows as unknown[]).length > 0,
       }})
     } finally { conn.release() }
+  } catch (err) { next(err) }
+})
+
+// ── GET /api/tracks/:id/stems ─────────────────────────────
+// 악기별 믹싱 UI(에디터)에서 사용. split_stem으로 분리된 스템 목록을 반환한다.
+router.get('/:id/stems', async (req, res, next) => {
+  try {
+    const [rows] = await pool.query('SELECT id, user_id, is_public FROM tracks WHERE id = ?', [req.params.id])
+    const track = (rows as Record<string, unknown>[])[0]
+    if (!track) { res.status(404).json({ success: false, error: '트랙을 찾을 수 없습니다.' }); return }
+    if (track.user_id !== req.user!.id && !track.is_public) {
+      res.status(403).json({ success: false, error: '접근 권한이 없습니다.' }); return
+    }
+
+    const [stems] = await pool.query(
+      'SELECT stem_type, audio_url, created_at FROM track_stems WHERE track_id = ? ORDER BY stem_type',
+      [req.params.id]
+    )
+    res.json({ success: true, data: { stems } })
   } catch (err) { next(err) }
 })
 

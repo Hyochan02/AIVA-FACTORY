@@ -1,9 +1,3 @@
-import { useMutation } from '@tanstack/react-query'
-import { generateLyrics } from '../../api/editor/generateLyrics'
-import type { LyricsPayload, LyricsResult } from '../../types/editor'
-
-export const useGenerateLyrics = () => {
-  return useMutation<LyricsResult, Error, LyricsPayload>({
-    mutationFn: async (payload) => (await generateLyrics(payload)).data,
-  })
-}
+// v3에서 제거된 기능: 가사 생성 (Suno lyrics)
+// 이 파일은 빌드 깨짐을 막기 위한 빈 모듈로 남겨두었으며, 삭제해도 안전합니다.
+export {}

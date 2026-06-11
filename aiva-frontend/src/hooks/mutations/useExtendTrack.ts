@@ -1,9 +1,3 @@
-import { useMutation } from '@tanstack/react-query'
-import { extendTrack } from '../../api/editor/extendTrack'
-import type { ExtendPayload } from '../../types/editor'
-
-export const useExtendTrack = () => {
-  return useMutation<unknown, Error, ExtendPayload>({
-    mutationFn: async (payload) => (await extendTrack(payload)).data,
-  })
-}
+// v3에서 제거된 기능: 음악 연장 (Suno extend)
+// 이 파일은 빌드 깨짐을 막기 위한 빈 모듈로 남겨두었으며, 삭제해도 안전합니다.
+export {}

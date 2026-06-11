@@ -43,6 +43,11 @@ export const TrackCard: React.FC<TrackCardProps> = ({
       <div className="p-4">
         <div className="font-semibold text-white text-sm truncate mb-2">{t.title}</div>
         <div className="flex items-center gap-2">
+          {t.version_num && (
+            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 shrink-0">
+              V{t.version_num}
+            </span>
+          )}
           <Badge variant="info">{t.genre}</Badge>
           <button
             onClick={(e) => onVisibilityToggle(e, track)}

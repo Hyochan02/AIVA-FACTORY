@@ -143,6 +143,11 @@ const Library: React.FC = () => {
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-semibold text-white truncate">{t.title}</div>
                     <div className="flex items-center gap-1.5 mt-0.5">
+                      {t.version_num && (
+                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 shrink-0">
+                          V{t.version_num}
+                        </span>
+                      )}
                       <span className="text-xs text-slate-400">{t.genre}</span>
                       <button
                         onClick={e => handleVisibilityToggle(e, t)}
@@ -163,7 +168,7 @@ const Library: React.FC = () => {
                   <Waveform className="w-20 hidden md:flex" />
                   <span className="text-xs text-slate-400">{formatDuration(t.duration)}</span>
                   <Button variant="secondary" size="sm"
-                    onClick={e => { e.stopPropagation(); navigate('/editor') }}>
+                    onClick={e => { e.stopPropagation(); navigate(`/editor?trackId=${t.id}`) }}>
                     편집
                   </Button>
                 </div>

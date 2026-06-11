@@ -21,6 +21,121 @@ const SUNO_BASE      = () => process.env.SUNO_API_BASE_URL || 'https://api.sunoa
 const SUNO_HEADERS   = () => ({ Authorization: `Bearer ${process.env.SUNO_API_KEY}` })
 const CALLBACK_BASE  = () => process.env.API_BASE_URL || 'https://api.aiva-factory.p-e.kr'
 
+type Conn = Awaited<ReturnType<typeof pool.getConnection>>
+
+type SunoVariant = {
+  id: string
+  audioUrl: string
+  streamAudioUrl: string
+  imageUrl: string
+  title: string
+  duration: number
+}
+
+// ── 헬퍼: Suno 응답(버전 1·2)을 "버전별 카드 분리" 구조로 반영 ──
+// - sunoData[0] (버전1) → 기존 tracks row 갱신
+// - sunoData[1] (버전2, 있으면) → 새로운 독립 tracks row 로 INSERT
+//   (좋아요/댓글/공개여부/믹싱을 버전마다 따로 가질 수 있도록 함)
+// - 이미 처리된 요청(중복 폴링·콜백 동시 도착)이면 빈 배열을 반환해
+//   아래 split_stem 자동 호출이 중복 실행되지 않도록 한다.
+async function applySunoSuccess(
+  conn: Conn,
+  track: Record<string, unknown>,
+  sunoData: SunoVariant[]
+): Promise<Array<{ id: string; user_id: string; suno_task_id: string; suno_audio_id: string }>> {
+  const first = sunoData[0]
+  if (!first) return []
+
+  const [updateResult] = await conn.query(
+    `UPDATE tracks SET
+       status = 'done', suno_audio_id = ?, audio_url = ?, stream_url = ?,
+       cover_url = ?, duration = ?, title = ?, version_num = 1
+     WHERE id = ? AND status != 'done'`,
+    [first.id, first.audioUrl, first.streamAudioUrl, first.imageUrl,
+     Math.round(first.duration ?? 0), first.title || track.title, track.id]
+  )
+  // affectedRows === 0 이면 이미 다른 요청에서 처리된 것이므로 중복 작업하지 않음
+  if ((updateResult as { affectedRows: number }).affectedRows === 0) return []
+
+  const newlyDone: Array<{ id: string; user_id: string; suno_task_id: string; suno_audio_id: string }> = [{
+    id:            track.id as string,
+    user_id:       track.user_id as string,
+    suno_task_id:  track.suno_task_id as string,
+    suno_audio_id: first.id,
+  }]
+
+  // 버전2가 있으면 별도의 tracks row 로 분리 생성
+  const second = sunoData[1]
+  if (second) {
+    const v2Id = uuidv4()
+    await conn.query(
+      `INSERT INTO tracks
+         (id, user_id, title, prompt, genre, mood, bpm, duration, status,
+          suno_task_id, suno_audio_id, version_num, audio_url, stream_url, cover_url, is_public)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'done', ?, ?, 2, ?, ?, ?, ?)`,
+      [v2Id, track.user_id, second.title || track.title, track.prompt, track.genre, track.mood, track.bpm,
+       Math.round(second.duration ?? 0), track.suno_task_id, second.id,
+       second.audioUrl, second.streamAudioUrl, second.imageUrl, track.is_public]
+    )
+    newlyDone.push({
+      id:            v2Id,
+      user_id:       track.user_id as string,
+      suno_task_id:  track.suno_task_id as string,
+      suno_audio_id: second.id,
+    })
+  }
+
+  return newlyDone
+}
+
+// ── 헬퍼: 곡 생성 완료 직후 12개 악기 스템 자동 분리 요청 ──────
+// Suno split_stem(최대 12스템)을 호출하고 suno_jobs(type='separate')로
+// 추적한다. 결과는 /api/editor/callback/separate 콜백으로 수신해
+// track_stems 테이블에 저장한다 (편집기 작업에서 처리).
+// 부가 기능이므로 실패해도 곡 생성 자체는 'done' 상태를 유지한다.
+async function triggerAutoSplitStem(
+  conn: Conn,
+  t: { id: string; user_id: string; suno_task_id: string; suno_audio_id: string }
+) {
+  if (!process.env.SUNO_API_KEY || !t.suno_audio_id) return
+  try {
+    const sunoRes = await axios.post(
+      `${SUNO_BASE()}/api/v1/vocal-removal/generate`,
+      {
+        taskId:      t.suno_task_id,
+        audioId:     t.suno_audio_id,
+        type:        'split_stem',
+        callBackUrl: `${CALLBACK_BASE()}/api/editor/callback/separate`,
+      },
+      { headers: SUNO_HEADERS(), timeout: 15000 }
+    )
+    const stemTaskId: string | undefined = sunoRes.data?.data?.taskId
+    if (stemTaskId) {
+      await conn.query(
+        `INSERT INTO suno_jobs (id, track_id, user_id, type, suno_task_id, status, extra)
+         VALUES (?, ?, ?, 'separate', ?, 'pending', ?)`,
+        [uuidv4(), t.id, t.user_id, stemTaskId, JSON.stringify({ mode: 'split_stem', auto: true })]
+      )
+    }
+  } catch (err) {
+    console.error(`[split_stem] 자동 분리 요청 실패 (track=${t.id}):`, (err as Error).message)
+  }
+}
+
+// ── 헬퍼: 같은 생성 요청(suno_task_id)에서 나온 버전들을 조회 ───
+// 버전별로 카드가 분리되므로, 한 곡이 완료되면 "다른 버전" 트랙도
+// 함께 내려줘 프론트에서 같이 보여줄 수 있게 한다.
+async function getSiblingVersions(conn: Conn, sunoTaskId: string | null, trackId: string, userId: string) {
+  const [rows] = await conn.query(
+    `SELECT id, version_num, title, audio_url, stream_url, cover_url, duration
+     FROM tracks
+     WHERE user_id = ? AND (suno_task_id = ? OR id = ?)
+     ORDER BY version_num`,
+    [userId, sunoTaskId, trackId]
+  )
+  return rows as Record<string, unknown>[]
+}
+
 // 생성 API 전용 Rate Limit
 const generateLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -140,11 +255,10 @@ router.get('/:trackId/status', async (req, res, next) => {
         return
       }
 
-      // 이미 완료된 경우 바로 반환
+      // 이미 완료된 경우 바로 반환 (같은 생성 요청에서 나온 다른 버전도 함께)
       if (track.status === 'done') {
-        const [vRows] = await conn.query(
-          'SELECT * FROM track_versions WHERE track_id = ? ORDER BY version_num',
-          [track.id]
+        const versions = await getSiblingVersions(
+          conn, track.suno_task_id as string | null, track.id as string, req.user!.id
         )
         res.json({
           success: true,
@@ -154,7 +268,7 @@ router.get('/:trackId/status', async (req, res, next) => {
             progress: 100,
             step:     '완료',
             audioUrl: track.audio_url,
-            versions: vRows,
+            versions,
           },
         })
         return
@@ -198,45 +312,16 @@ router.get('/:trackId/status', async (req, res, next) => {
 
         if (sunoStatus === 'SUCCESS') {
           status = 'done'
-          const sunoData: Array<{
-            id: string
-            audioUrl: string
-            streamAudioUrl: string
-            imageUrl: string
-            title: string
-            tags: string
-            duration: number
-          }> = sunoRes.data.data.response?.sunoData ?? []
+          const sunoData: SunoVariant[] = sunoRes.data.data.response?.sunoData ?? []
 
-          // 두 버전 모두 track_versions에 저장
-          for (let i = 0; i < sunoData.length; i++) {
-            const sd = sunoData[i]
-            const vId = uuidv4()
-            await conn.query(
-              `INSERT INTO track_versions
-                 (id, track_id, version_num, suno_audio_id, audio_url, stream_url, image_url, title, duration)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-               ON DUPLICATE KEY UPDATE
-                 audio_url = VALUES(audio_url), stream_url = VALUES(stream_url)`,
-              [vId, track.id, i + 1, sd.id, sd.audioUrl, sd.streamAudioUrl,
-               sd.imageUrl, sd.title || track.title, Math.round(sd.duration ?? 0)]
-            )
-          }
+          // 버전1 → 현재 트랙 갱신, 버전2(있으면) → 새 트랙으로 분리 생성
+          const newlyDone = await applySunoSuccess(conn, track, sunoData)
+          // 새로 완료된 모든 버전에 대해 12개 악기 스템 자동 분리 요청
+          for (const t of newlyDone) await triggerAutoSplitStem(conn, t)
 
-          // 메인 트랙에 첫 번째 버전 URL 저장
-          const first = sunoData[0]
-          if (first) {
-            await conn.query(
-              "UPDATE tracks SET status = 'done', audio_url = ?, cover_url = ?, duration = ? WHERE id = ?",
-              [first.audioUrl, first.imageUrl, Math.round(first.duration ?? 0), track.id]
-            )
-          }
-
-          const [vRows] = await conn.query(
-            'SELECT * FROM track_versions WHERE track_id = ? ORDER BY version_num',
-            [track.id]
+          versions = await getSiblingVersions(
+            conn, track.suno_task_id as string | null, track.id as string, req.user!.id
           )
-          versions = vRows as unknown[]
 
         } else if (sunoStatus === 'CREATE_TASK_FAILED' || sunoStatus === 'GENERATE_AUDIO_FAILED') {
           status = 'error'
@@ -304,30 +389,12 @@ router.post('/callback', async (req, res) => {
       const track = (rows as Record<string, unknown>[])[0]
       if (!track) { res.json({ ok: true }); return }
 
-      const sunoData: Array<{
-        id: string; audioUrl: string; streamAudioUrl: string
-        imageUrl: string; title: string; duration: number
-      }> = data.response?.sunoData ?? []
+      const sunoData: SunoVariant[] = data.response?.sunoData ?? []
 
-      for (let i = 0; i < sunoData.length; i++) {
-        const sd = sunoData[i]
-        await conn.query(
-          `INSERT INTO track_versions
-             (id, track_id, version_num, suno_audio_id, audio_url, stream_url, image_url, title, duration)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE audio_url = VALUES(audio_url)`,
-          [uuidv4(), track.id, i + 1, sd.id, sd.audioUrl, sd.streamAudioUrl,
-           sd.imageUrl, sd.title, Math.round(sd.duration ?? 0)]
-        )
-      }
-
-      const first = sunoData[0]
-      if (first) {
-        await conn.query(
-          "UPDATE tracks SET status = 'done', audio_url = ?, cover_url = ?, duration = ? WHERE id = ?",
-          [first.audioUrl, first.imageUrl, Math.round(first.duration ?? 0), track.id]
-        )
-      }
+      // 버전1 → 현재 트랙 갱신, 버전2(있으면) → 새 트랙으로 분리 생성
+      const newlyDone = await applySunoSuccess(conn, track, sunoData)
+      // 새로 완료된 모든 버전에 대해 12개 악기 스템 자동 분리 요청
+      for (const t of newlyDone) await triggerAutoSplitStem(conn, t)
     } finally { conn.release() }
     res.json({ ok: true })
   } catch { res.json({ ok: true }) }

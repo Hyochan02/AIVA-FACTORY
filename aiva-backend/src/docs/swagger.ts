@@ -623,7 +623,7 @@ const swaggerSpec = {
       get: {
         tags: ['Tracks'],
         summary: '트랙 상세 조회',
-        description: '트랙 정보 + 버전 목록 + 좋아요 수 + 내 좋아요 여부를 반환합니다. 조회 시 play_count +1.',
+        description: '트랙 정보 + 다른 버전 목록(같은 suno_task_id) + 좋아요 수 + 내 좋아요 여부를 반환합니다. 조회 시 play_count +1.',
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
         responses: {
           200: {
@@ -640,7 +640,7 @@ const swaggerSpec = {
                             { '$ref': '#/components/schemas/Track' },
                             {
                               properties: {
-                                versions:  { type: 'array', items: { type: 'object' } },
+                                versions:  { type: 'array', description: '같은 생성 요청에서 나온 다른 버전 트랙 목록', items: { type: 'object' } },
                                 likeCount: { type: 'integer', example: 42 },
                                 isLiked:   { type: 'boolean', example: false },
                               },
@@ -693,6 +693,57 @@ const swaggerSpec = {
         responses: {
           200: { description: '삭제 성공', content: { 'application/json': { schema: { '$ref': '#/components/schemas/MessageResponse' } } } },
           403: { description: '타인의 트랙 삭제 시도', content: { 'application/json': { schema: { '$ref': '#/components/schemas/ErrorResponse' } } } },
+          404: { '$ref': '#/components/responses/NotFound' },
+          401: { '$ref': '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+
+    '/api/tracks/{id}/stems': {
+      get: {
+        tags: ['Tracks'],
+        summary: '악기별 스템 목록 조회 (믹서 UI용)',
+        description:
+          '곡 생성 완료 시 자동으로 호출되는 Suno split_stem 결과(최대 12개 악기 트랙)를 반환합니다.\n\n' +
+          '에디터의 Web Audio 기반 믹서가 각 stem_type별 audio_url을 받아 동시 재생/볼륨 조절에 사용합니다.',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: {
+          200: {
+            description: '스템 목록 조회 성공',
+            content: {
+              'application/json': {
+                schema: {
+                  allOf: [
+                    { '$ref': '#/components/schemas/SuccessResponse' },
+                    {
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            stems: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                properties: {
+                                  stem_type: {
+                                    type: 'string',
+                                    enum: ['vocals','backing_vocals','drums','bass','guitar','keyboard','percussion','strings','synth','fx','brass','woodwinds','instrumental'],
+                                  },
+                                  audio_url:  { type: 'string' },
+                                  created_at: { type: 'string', format: 'date-time' },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          403: { description: '비공개 트랙에 타인이 접근 시', content: { 'application/json': { schema: { '$ref': '#/components/schemas/ErrorResponse' } } } },
           404: { '$ref': '#/components/responses/NotFound' },
           401: { '$ref': '#/components/responses/Unauthorized' },
         },
@@ -1293,129 +1344,18 @@ const swaggerSpec = {
     },
 
     // ════════════════════════════════════════════════════════
-    // EDITOR  (Suno 음악 편집)
+    // EDITOR  (Suno 음악 편집 — 악기별 믹싱 중심)
+    // 참고: 음악 연장(extend)·가사 생성(lyrics)은 v3에서 제거되었습니다.
     // ════════════════════════════════════════════════════════
-    '/api/editor/extend': {
-      post: {
-        tags: ['Editor'],
-        summary: '트랙 연장',
-        description: 'Suno AI로 기존 트랙을 이어서 연장합니다. 비동기 — jobId로 폴링하세요.',
-        security: [{ bearerAuth: [] }],
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                required: ['trackId', 'audioId'],
-                properties: {
-                  trackId:    { type: 'string', format: 'uuid' },
-                  audioId:    { type: 'string', description: 'track_versions.suno_audio_id' },
-                  prompt:     { type: 'string', example: '더 어두운 분위기로 이어가기' },
-                  continueAt: { type: 'number', example: 60, description: '이어붙일 시점 (초)' },
-                },
-              },
-            },
-          },
-        },
-        responses: {
-          202: { description: '연장 작업 등록', content: { 'application/json': { schema: { allOf: [{ '$ref': '#/components/schemas/SuccessResponse' }, { properties: { data: { type: 'object', properties: { jobId: { type: 'string', format: 'uuid' } } } } }] } } } },
-          401: { '$ref': '#/components/responses/Unauthorized' },
-        },
-      },
-    },
-    '/api/editor/extend/{jobId}': {
-      get: {
-        tags: ['Editor'],
-        summary: '트랙 연장 상태 폴링',
-        security: [{ bearerAuth: [] }],
-        parameters: [{ name: 'jobId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
-        responses: {
-          200: { description: '상태 + 결과 URL', content: { 'application/json': { schema: { allOf: [{ '$ref': '#/components/schemas/SuccessResponse' }, { properties: { data: { type: 'object', properties: { status: { type: 'string', enum: ['pending','done','error'] }, resultUrl: { type: 'string', nullable: true } } } } }] } } } },
-          401: { '$ref': '#/components/responses/Unauthorized' },
-        },
-      },
-    },
-
-    '/api/editor/lyrics': {
-      post: {
-        tags: ['Editor'],
-        summary: '가사 생성',
-        security: [{ bearerAuth: [] }],
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                required: ['prompt'],
-                properties: {
-                  prompt: { type: 'string', example: '비오는 날 카페 감성' },
-                  style:  { type: 'string', example: 'Korean Pop' },
-                  title:  { type: 'string', example: '빗소리' },
-                },
-              },
-            },
-          },
-        },
-        responses: {
-          202: { description: '가사 생성 작업 등록', content: { 'application/json': { schema: { allOf: [{ '$ref': '#/components/schemas/SuccessResponse' }, { properties: { data: { type: 'object', properties: { jobId: { type: 'string', format: 'uuid' } } } } }] } } } },
-          401: { '$ref': '#/components/responses/Unauthorized' },
-        },
-      },
-    },
-    '/api/editor/lyrics/{jobId}': {
-      get: {
-        tags: ['Editor'],
-        summary: '가사 생성 상태 폴링',
-        security: [{ bearerAuth: [] }],
-        parameters: [{ name: 'jobId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
-        responses: {
-          200: {
-            description: '상태 + 가사',
-            content: {
-              'application/json': {
-                schema: {
-                  allOf: [
-                    { '$ref': '#/components/schemas/SuccessResponse' },
-                    {
-                      properties: {
-                        data: {
-                          type: 'object',
-                          properties: {
-                            status:   { type: 'string', enum: ['pending','done','error'] },
-                            title:    { type: 'string', nullable: true, example: 'Rainy Mood' },
-                            text:     { type: 'string', nullable: true, example: '[Verse]\n빗소리 들려...' },
-                            variants: {
-                              type: 'array',
-                              description: 'Suno가 생성한 가사 후보 목록 (보통 2개)',
-                              items: {
-                                type: 'object',
-                                properties: {
-                                  title: { type: 'string' },
-                                  text:  { type: 'string' },
-                                },
-                              },
-                            },
-                          },
-                        },
-                      },
-                    },
-                  ],
-                },
-              },
-            },
-          },
-          401: { '$ref': '#/components/responses/Unauthorized' },
-        },
-      },
-    },
-
     '/api/editor/separate': {
       post: {
         tags: ['Editor'],
         summary: '보컬 / 스템 분리',
-        description: '`type: separate_vocal` → 보컬+반주 / `type: split_stem` → 4트랙 스템.',
+        description:
+          '`type: separate_vocal` → 보컬+반주 2트랙 / `type: split_stem` → 최대 12개 악기별 스템.\n\n' +
+          '곡 생성이 완료되면 자동으로 `split_stem`이 호출되므로, 이 엔드포인트는 ' +
+          '재분리(다른 type 시도 등)가 필요할 때만 사용합니다. 결과는 `track_stems` 테이블에 저장되며 ' +
+          'GET /api/tracks/{id}/stems 로 조회할 수 있습니다.',
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
@@ -1423,10 +1363,10 @@ const swaggerSpec = {
             'application/json': {
               schema: {
                 type: 'object',
-                required: ['audioId', 'type'],
+                required: ['trackId'],
                 properties: {
-                  audioId: { type: 'string' },
-                  type:    { type: 'string', enum: ['separate_vocal', 'split_stem'] },
+                  trackId: { type: 'string', format: 'uuid' },
+                  type:    { type: 'string', enum: ['separate_vocal', 'split_stem'], default: 'separate_vocal' },
                 },
               },
             },
@@ -1442,10 +1382,11 @@ const swaggerSpec = {
       get: {
         tags: ['Editor'],
         summary: '보컬/스템 분리 상태 폴링',
+        description: '완료 시 `stems`에 stem_type → audio_url 맵을 반환합니다 (예: `{ vocals, drums, bass, ... }`).',
         security: [{ bearerAuth: [] }],
         parameters: [{ name: 'jobId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
         responses: {
-          200: { description: '상태 + URL들', content: { 'application/json': { schema: { allOf: [{ '$ref': '#/components/schemas/SuccessResponse' }, { properties: { data: { type: 'object', properties: { status: { type: 'string', enum: ['pending','done','error'] }, vocalUrl: { type: 'string', nullable: true }, instrumentalUrl: { type: 'string', nullable: true }, drumsUrl: { type: 'string', nullable: true }, bassUrl: { type: 'string', nullable: true } } } } }] } } } },
+          200: { description: '상태 + 스템 URL 맵', content: { 'application/json': { schema: { allOf: [{ '$ref': '#/components/schemas/SuccessResponse' }, { properties: { data: { type: 'object', properties: { status: { type: 'string', enum: ['pending','done','error'] }, stems: { type: 'object', additionalProperties: { type: 'string' }, description: 'stem_type → audio_url' } } } } }] } } } },
           401: { '$ref': '#/components/responses/Unauthorized' },
         },
       },
@@ -1534,13 +1475,13 @@ const swaggerSpec = {
         summary: '편집 작업 히스토리 조회',
         description:
           '로그인 유저의 모든 편집 작업 목록을 최신순으로 반환합니다.\n\n' +
-          '작업 유형: `extend` (트랙 연장) / `lyrics` (가사 생성) / `separate` (보컬 분리) / `wav` (WAV 변환) / `video` (뮤직비디오)\n\n' +
+          '작업 유형: `separate` (악기/보컬 분리) / `wav` (WAV 변환) / `video` (뮤직비디오)\n\n' +
           '상태: `pending` (처리 중) / `done` (완료) / `error` (실패)',
         security: [{ bearerAuth: [] }],
         parameters: [
           {
             name: 'type', in: 'query',
-            schema: { type: 'string', enum: ['extend', 'lyrics', 'separate', 'wav', 'video'] },
+            schema: { type: 'string', enum: ['separate', 'wav', 'video'] },
             description: '특정 작업 유형만 필터 (생략 시 전체 반환)',
           },
           {
@@ -1568,11 +1509,11 @@ const swaggerSpec = {
                                 type: 'object',
                                 properties: {
                                   id:          { type: 'string', format: 'uuid', description: 'Job ID (폴링에 사용)' },
-                                  type:        { type: 'string', enum: ['extend','lyrics','separate','wav','video'], example: 'lyrics' },
+                                  type:        { type: 'string', enum: ['separate','wav','video'], example: 'separate' },
                                   status:      { type: 'string', enum: ['pending','done','error'], example: 'done' },
-                                  result_url:  { type: 'string', nullable: true, example: 'https://cdn.suno.ai/...', description: '완료 시 다운로드 URL' },
-                                  extra:       { type: 'string', nullable: true, description: '추가 정보 (JSON 문자열 또는 텍스트)' },
-                                  track_title: { type: 'string', nullable: true, example: 'Rainy Tokyo Night', description: '연관 트랙 제목 (가사 생성은 null)' },
+                                  result_url:  { type: 'string', nullable: true, example: 'https://cdn.suno.ai/...', description: '완료 시 대표 결과 URL (separate는 instrumental 우선)' },
+                                  extra:       { type: 'string', nullable: true, description: '추가 정보 (JSON 문자열, separate는 stems 맵 포함)' },
+                                  track_title: { type: 'string', nullable: true, example: 'Rainy Tokyo Night', description: '연관 트랙 제목' },
                                   created_at:  { type: 'string', format: 'date-time' },
                                 },
                               },
@@ -1597,7 +1538,7 @@ const swaggerSpec = {
         summary: 'Suno 에디터 콜백 수신 (서버→서버)',
         description: 'Suno AI가 편집 작업 완료 시 호출하는 웹훅. **프론트엔드에서 직접 호출 안 함.**',
         parameters: [
-          { name: 'type', in: 'path', required: true, schema: { type: 'string', enum: ['extend','lyrics','separate','wav','video'] } },
+          { name: 'type', in: 'path', required: true, schema: { type: 'string', enum: ['separate','wav','video'] } },
         ],
         requestBody: {
           required: true,

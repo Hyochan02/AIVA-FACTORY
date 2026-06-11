@@ -92,7 +92,7 @@ app.use('/api/credits',       creditsRouter)         // 크레딧 현황·이용
 app.use('/api/subscriptions', subscriptionsRouter)   // 구독·결제
 app.use('/api/notifications', notificationsRouter)   // 알림 설정
 app.use('/api/stats',         statsRouter)           // 대시보드 통계
-app.use('/api/editor',        editorRouter)           // 음악 편집 (Suno: extend/lyrics/separate/wav/video)
+app.use('/api/editor',        editorRouter)           // 음악 편집 (Suno: separate(악기 분리)/wav/video)
 
 // ── 에러 핸들러 ───────────────────────────────────────────────
 app.use(notFound)

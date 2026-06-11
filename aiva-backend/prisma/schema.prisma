@@ -105,15 +105,15 @@ model subscriptions {
   @@index([user_id, status], map: "idx_user_active")
 }
 
-model track_versions {
-  id          String    @id @db.VarChar(36)
-  track_id    String    @db.VarChar(36)
-  version_num Int       @db.TinyInt
-  audio_url   String    @db.VarChar(500)
-  duration    Int?      @db.UnsignedSmallInt
-  created_at  DateTime? @default(now()) @db.DateTime(0)
-  tracks      tracks    @relation(fields: [track_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "track_versions_ibfk_1")
+model track_stems {
+  id         String              @id @db.VarChar(36)
+  track_id   String              @db.VarChar(36)
+  stem_type  track_stems_stem_type
+  audio_url  String              @db.VarChar(500)
+  created_at DateTime?           @default(now()) @db.DateTime(0)
+  tracks     tracks              @relation(fields: [track_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "track_stems_ibfk_1")
 
+  @@unique([track_id, stem_type], map: "uq_track_stem")
   @@index([track_id], map: "idx_track_id")
 }
 
@@ -128,7 +128,10 @@ model tracks {
   duration        Int?             @db.UnsignedSmallInt
   status          tracks_status?   @default(pending)
   suno_task_id    String?          @db.VarChar(255)
+  suno_audio_id   String?          @db.VarChar(255)
+  version_num     Int              @default(1) @db.TinyInt
   audio_url       String?          @db.VarChar(500)
+  stream_url      String?          @db.VarChar(500)
   cover_url       String?          @db.VarChar(500)
   is_public       Boolean?         @default(false)
   play_count      Int?             @default(0) @db.UnsignedInt
@@ -139,13 +142,42 @@ model tracks {
   credit_history  credit_history[]
   editor_settings editor_settings?
   likes           likes[]
-  track_versions  track_versions[]
+  track_stems     track_stems[]
   users           users            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "tracks_ibfk_1")
 
   @@index([is_public, created_at], map: "idx_public_created")
   @@index([status], map: "idx_status")
   @@index([suno_task_id], map: "idx_suno_task")
   @@index([user_id], map: "idx_user_id")
+}
+
+model suno_jobs {
+  id           String          @id @db.VarChar(36)
+  track_id     String?         @db.VarChar(36)
+  user_id      String?         @db.VarChar(36)
+  type         suno_jobs_type
+  suno_task_id String          @db.VarChar(255)
+  status       suno_jobs_status? @default(pending)
+  result_url   String?         @db.VarChar(500)
+  extra        Json?
+  created_at   DateTime?       @default(now()) @db.DateTime(0)
+  updated_at   DateTime?       @default(now()) @db.DateTime(0)
+
+  @@index([suno_task_id], map: "idx_suno_task")
+  @@index([track_id], map: "idx_track_id")
+  @@index([user_id], map: "idx_user_id")
+}
+
+model password_resets {
+  id         String    @id @db.VarChar(36)
+  user_id    String    @db.VarChar(36)
+  token      String    @unique @db.VarChar(255)
+  expires_at DateTime  @db.DateTime(0)
+  used       Boolean?  @default(false)
+  created_at DateTime? @default(now()) @db.DateTime(0)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "password_resets_ibfk_1")
+
+  @@index([token], map: "idx_token")
 }
 
 model user_preferences {
@@ -171,6 +203,7 @@ model users {
   follows_follows_following_idTousers follows[]              @relation("follows_following_idTousers")
   likes                               likes[]
   notification_settings               notification_settings?
+  password_resets                     password_resets[]
   social_accounts                     social_accounts[]
   subscriptions                       subscriptions[]
   tracks                              tracks[]
@@ -219,6 +252,34 @@ enum users_plan {
 enum tracks_status {
   pending
   generating
+  done
+  error
+}
+
+enum track_stems_stem_type {
+  vocals
+  backing_vocals
+  drums
+  bass
+  guitar
+  keyboard
+  percussion
+  strings
+  synth
+  fx
+  brass
+  woodwinds
+  instrumental
+}
+
+enum suno_jobs_type {
+  separate
+  wav
+  video
+}
+
+enum suno_jobs_status {
+  pending
   done
   error
 }

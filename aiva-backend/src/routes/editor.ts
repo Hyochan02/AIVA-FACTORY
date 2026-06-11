@@ -1,14 +1,16 @@
 /**
  * 음악 편집 라우트: /api/editor
- * POST /extend        - 음악 연장 (Suno extend)
- * POST /lyrics        - 가사 생성 (Suno lyrics)
- * GET  /lyrics/:jobId - 가사 생성 상태 폴링
- * POST /separate      - 보컬/악기 분리 (Suno vocal-removal)
- * GET  /separate/:jobId - 분리 상태 폴링
- * POST /wav           - WAV 변환 (Suno wav)
- * GET  /wav/:jobId    - WAV 변환 상태 폴링
- * POST /video         - 뮤직비디오 생성 (Suno mp4)
- * GET  /video/:jobId  - 비디오 상태 폴링
+ * POST /separate        - 보컬/악기 분리 (Suno vocal-removal, split_stem 시 12개 스템 자동 저장)
+ * GET  /separate/:jobId - 분리 상태 폴링 (track_stems 저장 결과 반환)
+ * POST /wav             - WAV 변환 (Suno wav)
+ * GET  /wav/:jobId      - WAV 변환 상태 폴링
+ * POST /video           - 뮤직비디오 생성 (Suno mp4)
+ * GET  /video/:jobId    - 비디오 상태 폴링
+ * GET  /mix/:trackId    - 저장된 믹스 설정(stem별 볼륨/뮤트/솔로) 조회
+ * PUT  /mix/:trackId    - 믹스 설정 저장
+ *
+ * 참고: 음악 연장(extend)·가사 생성(lyrics) 기능은 v3에서 제거되었습니다.
+ *       (악기별 믹싱 기능에 집중하기 위한 결정 — DB 마이그레이션 migrate_v3.sql 참고)
  */
 import { Router } from 'express'
 import { z } from 'zod'
@@ -24,12 +26,54 @@ const SUNO_BASE     = () => process.env.SUNO_API_BASE_URL || 'https://api.sunoap
 const SUNO_HEADERS  = () => ({ Authorization: `Bearer ${process.env.SUNO_API_KEY}` })
 const CALLBACK_BASE = () => process.env.API_BASE_URL || 'https://api.aiva-factory.p-e.kr'
 
+type Conn = Awaited<ReturnType<typeof pool.getConnection>>
+
+// Suno split_stem 응답 필드명 → track_stems.stem_type 매핑
+// (separate_vocal 모드는 vocal_url / instrumental_url 만 채워진다)
+const STEM_FIELD_MAP: Record<string, string> = {
+  vocals:         'vocal_url',
+  backing_vocals: 'backing_vocals_url',
+  drums:          'drums_url',
+  bass:           'bass_url',
+  guitar:         'guitar_url',
+  keyboard:       'keyboard_url',
+  percussion:     'percussion_url',
+  strings:        'strings_url',
+  synth:          'synth_url',
+  fx:             'fx_url',
+  brass:          'brass_url',
+  woodwinds:      'woodwinds_url',
+  instrumental:   'instrumental_url',
+}
+
+// ── 헬퍼: split_stem/separate_vocal 결과를 track_stems 테이블에 upsert ──
+// 같은 (track_id, stem_type) 조합이 다시 들어오면 UNIQUE 제약 + ON DUPLICATE
+// KEY UPDATE 로 최신 URL 로 덮어쓴다 (재분리 요청 시 중복 행 방지).
+async function saveStems(conn: Conn, trackId: string, info: Record<string, unknown>) {
+  const saved: Record<string, string> = {}
+  for (const [stemType, field] of Object.entries(STEM_FIELD_MAP)) {
+    const url = info[field]
+    if (typeof url === 'string' && url) {
+      await conn.query(
+        `INSERT INTO track_stems (id, track_id, stem_type, audio_url)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE audio_url = VALUES(audio_url)`,
+        [uuidv4(), trackId, stemType, url]
+      )
+      saved[stemType] = url
+    }
+  }
+  return saved
+}
+
 // ── 헬퍼: 트랙 소유권 검증 ─────────────────────────────────
+// v3부터 tracks 테이블이 버전(variation)당 1행이고 suno_audio_id를
+// 직접 보유하므로, 더 이상 track_versions JOIN이 필요 없다.
 async function getOwnedTrack(trackId: string, userId: string) {
   const conn = await pool.getConnection()
   try {
     const [rows] = await conn.query(
-      "SELECT t.*, tv.suno_audio_id, tv.audio_url as v_audio_url, tv.title as v_title FROM tracks t LEFT JOIN track_versions tv ON tv.track_id = t.id AND tv.version_num = 1 WHERE t.id = ? AND t.user_id = ? AND t.status = 'done'",
+      "SELECT * FROM tracks WHERE id = ? AND user_id = ? AND status = 'done'",
       [trackId, userId]
     )
     return (rows as Record<string, unknown>[])[0] ?? null
@@ -67,7 +111,7 @@ async function getJob(jobId: string, userId: string) {
 async function getJobs(userId: string, type?: string, limit = 30) {
   const conn = await pool.getConnection()
   try {
-    const validTypes = ['extend', 'lyrics', 'separate', 'wav', 'video']
+    const validTypes = ['separate', 'wav', 'video']
     const useType = type && validTypes.includes(type) ? type : null
 
     const query = useType
@@ -93,144 +137,7 @@ async function getJobs(userId: string, type?: string, limit = 30) {
 }
 
 // ──────────────────────────────────────────────────────────
-// 1. 음악 연장 (Extend)
-// ──────────────────────────────────────────────────────────
-router.post('/extend', async (req, res, next) => {
-  try {
-    const { trackId, prompt, style, continueAt } = z.object({
-      trackId:    z.string().uuid(),
-      prompt:     z.string().max(500).optional(),
-      style:      z.string().max(200).optional(),
-      continueAt: z.number().min(0).default(60),
-    }).parse(req.body)
-
-    const track = await getOwnedTrack(trackId, req.user!.id)
-    if (!track) { res.status(404).json({ success: false, error: '트랙을 찾을 수 없습니다.' }); return }
-
-    if (!process.env.SUNO_API_KEY) {
-      res.json({ success: true, data: { jobId: `mock_extend_${Date.now()}`, message: '개발 모드 - 실제 호출 없음' } })
-      return
-    }
-
-    const sunoRes = await axios.post(
-      `${SUNO_BASE()}/api/v1/generate/extend`,
-      {
-        defaultParamFlag: true,
-        audioId:    track.suno_audio_id,
-        model:      'V4_5ALL',
-        prompt:     prompt || '',
-        style:      style  || track.genre || '',
-        title:      track.title,
-        continueAt,
-        callBackUrl: `${CALLBACK_BASE()}/api/editor/callback/extend`,
-      },
-      { headers: SUNO_HEADERS(), timeout: 15000 }
-    )
-
-    const sunoTaskId: string = sunoRes.data?.data?.taskId
-    const jobId = await saveJob('extend', trackId, sunoTaskId, JSON.stringify({ continueAt }))
-    res.json({ success: true, data: { jobId, sunoTaskId } })
-  } catch (err) { next(err) }
-})
-
-// ── GET /api/editor/extend/:jobId ──────────────────────────
-router.get('/extend/:jobId', async (req, res, next) => {
-  try {
-    const job = await getJob(req.params.jobId, req.user!.id)
-    if (!job) { res.status(404).json({ success: false, error: '작업을 찾을 수 없습니다.' }); return }
-
-    if (!process.env.SUNO_API_KEY) {
-      res.json({ success: true, data: { status: 'done', audioUrl: 'https://example.com/mock-extended.mp3' } })
-      return
-    }
-
-    const sunoRes = await axios.get(
-      `${SUNO_BASE()}/api/v1/generate/record-info?taskId=${job.suno_task_id}`,
-      { headers: SUNO_HEADERS(), timeout: 10000 }
-    )
-    const sunoStatus: string = sunoRes.data?.data?.status ?? 'PENDING'
-
-    if (sunoStatus === 'SUCCESS') {
-      const sunoData = sunoRes.data.data.response?.sunoData ?? []
-      const audioUrl = sunoData[0]?.audioUrl ?? null
-      const conn = await pool.getConnection()
-      try {
-        await conn.query("UPDATE suno_jobs SET status = 'done', result_url = ? WHERE id = ?", [audioUrl, job.id])
-      } finally { conn.release() }
-      res.json({ success: true, data: { status: 'done', audioUrl } })
-    } else {
-      res.json({ success: true, data: { status: 'pending', progress: sunoStatus === 'FIRST_SUCCESS' ? 60 : 30 } })
-    }
-  } catch (err) { next(err) }
-})
-
-// ──────────────────────────────────────────────────────────
-// 2. 가사 생성 (Lyrics)
-// ──────────────────────────────────────────────────────────
-router.post('/lyrics', async (req, res, next) => {
-  try {
-    const { prompt } = z.object({ prompt: z.string().min(1).max(300) }).parse(req.body)
-
-    if (!process.env.SUNO_API_KEY) {
-      res.json({ success: true, data: { jobId: `mock_lyrics_${Date.now()}` } })
-      return
-    }
-
-    const sunoRes = await axios.post(
-      `${SUNO_BASE()}/api/v1/lyrics`,
-      { prompt, callBackUrl: `${CALLBACK_BASE()}/api/editor/callback/lyrics` },
-      { headers: SUNO_HEADERS(), timeout: 15000 }
-    )
-
-    const sunoTaskId: string = sunoRes.data?.data?.taskId
-    const jobId = await saveJob('lyrics', null, sunoTaskId, req.user!.id, JSON.stringify({ prompt }))
-    res.json({ success: true, data: { jobId, sunoTaskId } })
-  } catch (err) { next(err) }
-})
-
-// ── GET /api/editor/lyrics/:jobId ──────────────────────────
-router.get('/lyrics/:jobId', async (req, res, next) => {
-  try {
-    const job = await getJob(req.params.jobId, req.user!.id)
-    if (!job) { res.status(404).json({ success: false, error: '작업을 찾을 수 없습니다.' }); return }
-
-    if (!process.env.SUNO_API_KEY) {
-      res.json({ success: true, data: {
-        status: 'done',
-        title: 'Mock Song Title',
-        text: '[Verse 1]\nThis is a mock lyric line\nGenerated for development\n\n[Chorus]\nMock chorus here\nWith some cool words',
-      }})
-      return
-    }
-
-    const sunoRes = await axios.get(
-      `${SUNO_BASE()}/api/v1/lyrics/record-info?taskId=${job.suno_task_id}`,
-      { headers: SUNO_HEADERS(), timeout: 10000 }
-    )
-    const data = sunoRes.data?.data
-    if (data?.status === 'SUCCESS') {
-      const conn = await pool.getConnection()
-      try {
-        await conn.query("UPDATE suno_jobs SET status = 'done' WHERE id = ?", [job.id])
-      } finally { conn.release() }
-      // Suno record-info 응답 구조: data.response.data[] (배열, 여러 변형 가능)
-      // 첫 번째 complete 항목 사용
-      const variants: Array<{ text?: string; title?: string; status?: string }> = data.response?.data ?? []
-      const first = variants.find((v) => v.status === 'complete') ?? variants[0] ?? {}
-      res.json({ success: true, data: {
-        status: 'done',
-        title: first.title ?? '',
-        text:  first.text  ?? '',
-        variants: variants.map(v => ({ title: v.title ?? '', text: v.text ?? '' })),
-      }})
-    } else {
-      res.json({ success: true, data: { status: 'pending' } })
-    }
-  } catch (err) { next(err) }
-})
-
-// ──────────────────────────────────────────────────────────
-// 3. 보컬/악기 분리 (Separate)
+// 1. 보컬/악기 분리 (Separate)
 // ──────────────────────────────────────────────────────────
 router.post('/separate', async (req, res, next) => {
   try {
@@ -259,12 +166,15 @@ router.post('/separate', async (req, res, next) => {
     )
 
     const sunoTaskId: string = sunoRes.data?.data?.taskId
-    const jobId = await saveJob('separate', trackId, sunoTaskId, JSON.stringify({ type }))
+    const jobId = await saveJob('separate', trackId, sunoTaskId, req.user!.id, JSON.stringify({ type }))
     res.json({ success: true, data: { jobId, sunoTaskId } })
   } catch (err) { next(err) }
 })
 
 // ── GET /api/editor/separate/:jobId ────────────────────────
+// split_stem 결과를 폴링한다. 정상 흐름에서는 자동 분리 결과가
+// POST /callback/separate 웹훅으로 먼저 도착해 track_stems에 저장되므로,
+// 여기서는 "혹시 아직 콜백이 안 왔을 때"를 위한 보조 경로로도 동작한다.
 router.get('/separate/:jobId', async (req, res, next) => {
   try {
     const job = await getJob(req.params.jobId, req.user!.id)
@@ -273,9 +183,23 @@ router.get('/separate/:jobId', async (req, res, next) => {
     if (!process.env.SUNO_API_KEY) {
       res.json({ success: true, data: {
         status: 'done',
-        vocalUrl:        'https://example.com/mock-vocals.mp3',
-        instrumentalUrl: 'https://example.com/mock-instrumental.mp3',
+        stems: {
+          vocals:       'https://example.com/mock-vocals.mp3',
+          instrumental: 'https://example.com/mock-instrumental.mp3',
+        },
       }})
+      return
+    }
+
+    // 이미 콜백으로 처리되어 done 상태라면 track_stems에서 바로 읽어온다
+    if (job.status === 'done' && job.track_id) {
+      const [rows] = await pool.query(
+        'SELECT stem_type, audio_url FROM track_stems WHERE track_id = ?',
+        [job.track_id]
+      )
+      const stems: Record<string, string> = {}
+      for (const r of rows as Record<string, unknown>[]) stems[r.stem_type as string] = r.audio_url as string
+      res.json({ success: true, data: { status: 'done', stems } })
       return
     }
 
@@ -288,9 +212,13 @@ router.get('/separate/:jobId', async (req, res, next) => {
       const info = data.vocal_removal_info ?? {}
       const conn = await pool.getConnection()
       try {
-        await conn.query("UPDATE suno_jobs SET status = 'done' WHERE id = ?", [job.id])
+        const stems = job.track_id ? await saveStems(conn, job.track_id as string, info) : {}
+        await conn.query("UPDATE suno_jobs SET status = 'done', extra = ? WHERE id = ?", [
+          JSON.stringify({ ...(typeof job.extra === 'string' ? JSON.parse(job.extra || '{}') : (job.extra ?? {})), stems }),
+          job.id,
+        ])
+        res.json({ success: true, data: { status: 'done', stems } })
       } finally { conn.release() }
-      res.json({ success: true, data: { status: 'done', ...info } })
     } else {
       res.json({ success: true, data: { status: 'pending' } })
     }
@@ -298,13 +226,12 @@ router.get('/separate/:jobId', async (req, res, next) => {
 })
 
 // ──────────────────────────────────────────────────────────
-// 4. WAV 변환
+// 2. WAV 변환
 // ──────────────────────────────────────────────────────────
 router.post('/wav', async (req, res, next) => {
   try {
-    const { trackId, versionNum } = z.object({
-      trackId:    z.string().uuid(),
-      versionNum: z.number().int().min(1).max(2).default(1),
+    const { trackId } = z.object({
+      trackId: z.string().uuid(),
     }).parse(req.body)
 
     const track = await getOwnedTrack(trackId, req.user!.id)
@@ -315,30 +242,20 @@ router.post('/wav', async (req, res, next) => {
       return
     }
 
-    // 선택된 버전의 audioId 가져오기
-    const conn2 = await pool.getConnection()
-    let audioId = track.suno_audio_id as string
-    try {
-      const [vRows] = await conn2.query(
-        'SELECT suno_audio_id FROM track_versions WHERE track_id = ? AND version_num = ?',
-        [trackId, versionNum]
-      )
-      const vRow = (vRows as Record<string, unknown>[])[0]
-      if (vRow?.suno_audio_id) audioId = vRow.suno_audio_id as string
-    } finally { conn2.release() }
-
+    // v3부터 버전(variation)마다 별도의 tracks row 이므로,
+    // 해당 트랙 자신의 suno_audio_id를 그대로 사용하면 된다.
     const sunoRes = await axios.post(
       `${SUNO_BASE()}/api/v1/wav/generate`,
       {
         taskId:      track.suno_task_id,
-        audioId,
+        audioId:     track.suno_audio_id,
         callBackUrl: `${CALLBACK_BASE()}/api/editor/callback/wav`,
       },
       { headers: SUNO_HEADERS(), timeout: 15000 }
     )
 
     const sunoTaskId: string = sunoRes.data?.data?.taskId
-    const jobId = await saveJob('wav', trackId, sunoTaskId, '{}')
+    const jobId = await saveJob('wav', trackId, sunoTaskId, req.user!.id, '{}')
     res.json({ success: true, data: { jobId, sunoTaskId } })
   } catch (err) { next(err) }
 })
@@ -373,7 +290,7 @@ router.get('/wav/:jobId', async (req, res, next) => {
 })
 
 // ──────────────────────────────────────────────────────────
-// 5. 뮤직비디오 생성
+// 3. 뮤직비디오 생성
 // ──────────────────────────────────────────────────────────
 router.post('/video', async (req, res, next) => {
   try {
@@ -434,6 +351,58 @@ router.get('/video/:jobId', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
+// ──────────────────────────────────────────────────────────
+// 4. 믹스 설정 저장/조회 (Stem 편집기 — 트랙별 볼륨/뮤트/솔로)
+// ──────────────────────────────────────────────────────────
+// editor_settings 테이블(schema.sql에 이미 정의되어 있던 미사용 테이블)을
+// 재활용한다: track_id를 PK로 stem_config JSON에 { [stemType]: { volume, muted, solo } }
+// 형태로 저장한다. 별도 마이그레이션 불필요.
+const StemMixConfigSchema = z.record(
+  z.string(),
+  z.object({
+    volume: z.number().min(0).max(1),
+    muted: z.boolean(),
+    solo: z.boolean(),
+  })
+)
+
+// ── GET /api/editor/mix/:trackId — 저장된 믹스 설정 조회 ──
+router.get('/mix/:trackId', async (req, res, next) => {
+  try {
+    const track = await getOwnedTrack(req.params.trackId, req.user!.id)
+    if (!track) { res.status(404).json({ success: false, error: '트랙을 찾을 수 없습니다.' }); return }
+
+    const [rows] = await pool.query(
+      'SELECT stem_config FROM editor_settings WHERE track_id = ?',
+      [req.params.trackId]
+    )
+    const row = (rows as Record<string, unknown>[])[0]
+    const raw = row?.stem_config
+    const stemConfig = raw
+      ? (typeof raw === 'string' ? JSON.parse(raw) : raw)
+      : null
+    res.json({ success: true, data: { stemConfig } })
+  } catch (err) { next(err) }
+})
+
+// ── PUT /api/editor/mix/:trackId — 믹스 설정 저장(upsert) ──
+router.put('/mix/:trackId', async (req, res, next) => {
+  try {
+    const track = await getOwnedTrack(req.params.trackId, req.user!.id)
+    if (!track) { res.status(404).json({ success: false, error: '트랙을 찾을 수 없습니다.' }); return }
+
+    const stemConfig = StemMixConfigSchema.parse(req.body?.stemConfig ?? {})
+
+    await pool.query(
+      `INSERT INTO editor_settings (track_id, stem_config)
+       VALUES (?, ?)
+       ON DUPLICATE KEY UPDATE stem_config = VALUES(stem_config)`,
+      [req.params.trackId, JSON.stringify(stemConfig)]
+    )
+    res.json({ success: true, data: { stemConfig } })
+  } catch (err) { next(err) }
+})
+
 // ── GET /api/editor/jobs ─ 히스토리 목록 ──────────────────
 router.get('/jobs', async (req, res, next) => {
   try {
@@ -469,26 +438,38 @@ router.post('/callback/:type', async (req, res) => {
       // 결과 URL 추출 (타입별로 다름)
       let resultUrl: string | null = null
       let extra: string | null = null
+      let status: 'done' | 'error' = 'done'
 
-      if (type === 'extend') {
-        const items = data.response?.data ?? []
-        const item  = items.find((x: any) => x.status === 'complete') ?? items[0]
-        resultUrl = item?.audio_url ?? null
-      } else if (type === 'lyrics') {
-        const variants = data.response?.data ?? []
-        const first    = variants.find((v: any) => v.status === 'complete') ?? variants[0] ?? {}
-        extra     = JSON.stringify({ title: first.title ?? '', text: first.text ?? '', variants })
-        resultUrl = null
-      } else if (type === 'separate') {
-        resultUrl = data.response?.vocal_url ?? data.response?.audio_url ?? null
-        extra     = JSON.stringify(data.response ?? {})
+      if (type === 'separate') {
+        // split_stem(또는 separate_vocal) 응답에서 최대 12개 스템 URL을
+        // 모두 파싱해 track_stems 테이블에 upsert한다.
+        const info = data.response ?? data.vocal_removal_info ?? {}
+        const [jobRows]: any = await conn.query(
+          'SELECT track_id, extra FROM suno_jobs WHERE id = ?',
+          [jobId]
+        )
+        const trackId: string | null = jobRows[0]?.track_id ?? null
+        const stems = trackId ? await saveStems(conn, trackId, info) : {}
+
+        if (Object.keys(stems).length === 0) {
+          status = 'error'
+        } else {
+          const prevExtra = (() => {
+            const raw = jobRows[0]?.extra
+            if (!raw) return {}
+            return typeof raw === 'string' ? JSON.parse(raw) : raw
+          })()
+          extra = JSON.stringify({ ...prevExtra, stems })
+          resultUrl = stems.instrumental ?? stems.vocals ?? null
+        }
       } else if (type === 'wav') {
         resultUrl = data.response?.audio_url ?? null
+        if (!resultUrl) status = 'error'
       } else if (type === 'video') {
         resultUrl = data.response?.video_url ?? null
+        if (!resultUrl) status = 'error'
       }
 
-      const status = resultUrl || extra ? 'done' : 'error'
       await conn.query(
         'UPDATE suno_jobs SET status = ?, result_url = ?, extra = ? WHERE id = ?',
         [status, resultUrl, extra, jobId]

@@ -16,18 +16,11 @@ import { optionalAuthenticate } from '../middlewares/auth'
 const router = Router()
 router.use(optionalAuthenticate)
 
-// ── 공통: 실제 duration 서브쿼리 ─────────────────────────────
-// tracks.duration은 요청 시 입력값, track_versions.duration이 Suno 실제 출력 길이
-// COALESCE로 track_versions 우선, 없으면 tracks.duration 폴백
-// v1(첫 번째 버전) 기준 duration 사용
-// MAX()는 긴 버전이 기준이 되어 혼란스러우므로, 대표 버전인 v1을 기준으로 표시
-const DURATION_SUBQ = `
-  COALESCE(
-    (SELECT tv.duration FROM track_versions tv
-     WHERE tv.track_id = t.id AND tv.duration IS NOT NULL
-     ORDER BY tv.version_num ASC LIMIT 1),
-    t.duration
-  ) AS duration`
+// ── 공통: duration 컬럼 ───────────────────────────────────────
+// v3부터 버전(variation)마다 별도의 tracks row이고, 생성 완료 시
+// applySunoSuccess()가 Suno 실제 출력 길이를 t.duration에 직접 저장하므로
+// 더 이상 track_versions를 조인할 필요가 없다.
+const DURATION_SUBQ = `t.duration AS duration`
 
 // ── GET /api/explore/trending ──────────────────────────────
 router.get('/trending', async (req, res, next) => {

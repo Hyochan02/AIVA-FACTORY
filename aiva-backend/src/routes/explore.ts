@@ -47,7 +47,7 @@ router.get('/trending', async (req, res, next) => {
        FROM tracks t
        JOIN users u ON t.user_id = u.id
        ${where}
-       ORDER BY (t.play_count * 1 + t.like_count * 3) DESC
+       ORDER BY t.play_count DESC
        LIMIT ? OFFSET ?`,
       [userId, userId, ...params, Number(limit), offset]
     )

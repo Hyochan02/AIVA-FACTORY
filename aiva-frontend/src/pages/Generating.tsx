@@ -37,7 +37,8 @@ const Generating: React.FC = () => {
   const versions = status?.versions ?? [];
 
   return (
-    <div className="max-w-lg mx-auto text-center space-y-10 py-8">
+    <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
+    <div className="w-full max-w-lg text-center space-y-10 py-8">
       <div className="relative w-32 h-32 mx-auto">
         {!isDone && !isError && (
           <div className="absolute inset-0 rounded-full bg-indigo-600/20 animate-ping" />
@@ -145,6 +146,7 @@ const Generating: React.FC = () => {
           </button>
         </div>
       )}
+    </div>
     </div>
   );
 };

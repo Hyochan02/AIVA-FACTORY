@@ -260,7 +260,7 @@ const Explore: React.FC = () => {
             <h2 className="flex items-center gap-2 font-bold text-white">
               <Flame size={18} className="text-orange-400" /> 트렌딩
             </h2>
-            <span className="text-xs text-slate-500">최근 7일 · 재생 ×1 + 좋아요 ×3 점수 순</span>
+            <span className="text-xs text-slate-500">최근 7일 · 재생수 순</span>
           </div>
           {trendingLoading ? (
             Array(5).fill(0).map((_, i) => <TrackSkeleton key={i} />)

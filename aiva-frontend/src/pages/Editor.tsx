@@ -228,7 +228,7 @@ const Editor: React.FC = () => {
             </p>
           </div>
           <div className="flex gap-3">
-            <Button variant="secondary" size="sm" fullWidth onClick={() => blocker.reset()}>
+            <Button variant="secondary" size="sm" className="flex-1" onClick={() => blocker.reset()}>
               계속 대기하기
             </Button>
             <button

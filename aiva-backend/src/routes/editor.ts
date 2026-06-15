@@ -333,7 +333,9 @@ router.post('/wav', async (req, res, next) => {
       { headers: SUNO_HEADERS(), timeout: 15000 }
     )
 
-    const sunoTaskId: string = sunoRes.data?.data?.taskId
+    console.log('[wav/generate] suno response:', JSON.stringify(sunoRes.data))
+    const sunoTaskId: string = sunoRes.data?.data?.taskId ?? sunoRes.data?.data?.task_id ?? sunoRes.data?.taskId
+    console.log('[wav/generate] extracted sunoTaskId:', sunoTaskId)
     const jobId = await saveJob('wav', trackId, sunoTaskId, req.user!.id, '{}')
     res.json({ success: true, data: { jobId, sunoTaskId } })
   } catch (err) { next(err) }
@@ -341,6 +343,7 @@ router.post('/wav', async (req, res, next) => {
 
 // ── GET /api/editor/wav/:jobId ─────────────────────────────
 router.get('/wav/:jobId', async (req, res, next) => {
+  res.set('Cache-Control', 'no-store')
   try {
     const job = await getJob(req.params.jobId, req.user!.id)
     if (!job) { res.status(404).json({ success: false, error: '작업을 찾을 수 없습니다.' }); return }
@@ -355,22 +358,32 @@ router.get('/wav/:jobId', async (req, res, next) => {
       res.json({ success: true, data: { status: 'done', wavUrl: job.result_url } })
       return
     }
-
-    const sunoRes = await axios.get(
-      `${SUNO_BASE()}/api/v1/wav/record-info?taskId=${job.suno_task_id}`,
-      { headers: SUNO_HEADERS(), timeout: 10000 }
-    )
-    const data = sunoRes.data?.data
-    if (data?.status === 'SUCCESS') {
-      const wavUrl = data.audioWavUrl ?? null
-      const conn = await pool.getConnection()
-      try {
-        await conn.query("UPDATE suno_jobs SET status = 'done', result_url = ? WHERE id = ?", [wavUrl, job.id])
-      } finally { conn.release() }
-      res.json({ success: true, data: { status: 'done', wavUrl } })
-    } else {
-      res.json({ success: true, data: { status: 'pending' } })
+    if (job.status === 'error') {
+      res.json({ success: true, data: { status: 'error' } })
+      return
     }
+
+    try {
+      const sunoRes = await axios.get(
+        `${SUNO_BASE()}/api/v1/wav/record-info?taskId=${job.suno_task_id}`,
+        { headers: SUNO_HEADERS(), timeout: 10000 }
+      )
+      console.log('[wav/poll] suno record-info:', JSON.stringify(sunoRes.data))
+      const data = sunoRes.data?.data
+      if (data?.status === 'SUCCESS') {
+        const wavUrl = data.audioWavUrl ?? null
+        const conn = await pool.getConnection()
+        try {
+          await conn.query("UPDATE suno_jobs SET status = 'done', result_url = ? WHERE id = ?", [wavUrl, job.id])
+        } finally { conn.release() }
+        res.json({ success: true, data: { status: 'done', wavUrl } })
+        return
+      }
+    } catch (pollErr: any) {
+      console.warn('[wav/poll] record-info failed:', pollErr?.response?.status, pollErr?.message)
+    }
+
+    res.json({ success: true, data: { status: 'pending' } })
   } catch (err) { next(err) }
 })
 
@@ -409,6 +422,7 @@ router.post('/video', async (req, res, next) => {
 
 // ── GET /api/editor/video/:jobId ───────────────────────────
 router.get('/video/:jobId', async (req, res, next) => {
+  res.set('Cache-Control', 'no-store')
   try {
     const job = await getJob(req.params.jobId, req.user!.id)
     if (!job) { res.status(404).json({ success: false, error: '작업을 찾을 수 없습니다.' }); return }
@@ -423,22 +437,32 @@ router.get('/video/:jobId', async (req, res, next) => {
       res.json({ success: true, data: { status: 'done', videoUrl: job.result_url } })
       return
     }
-
-    const sunoRes = await axios.get(
-      `${SUNO_BASE()}/api/v1/mp4/record-info?taskId=${job.suno_task_id}`,
-      { headers: SUNO_HEADERS(), timeout: 10000 }
-    )
-    const data = sunoRes.data?.data
-    if (data?.status === 'SUCCESS') {
-      const videoUrl = data.video_url ?? null
-      const conn = await pool.getConnection()
-      try {
-        await conn.query("UPDATE suno_jobs SET status = 'done', result_url = ? WHERE id = ?", [videoUrl, job.id])
-      } finally { conn.release() }
-      res.json({ success: true, data: { status: 'done', videoUrl } })
-    } else {
-      res.json({ success: true, data: { status: 'pending' } })
+    if (job.status === 'error') {
+      res.json({ success: true, data: { status: 'error' } })
+      return
     }
+
+    try {
+      const sunoRes = await axios.get(
+        `${SUNO_BASE()}/api/v1/mp4/record-info?taskId=${job.suno_task_id}`,
+        { headers: SUNO_HEADERS(), timeout: 10000 }
+      )
+      console.log('[video/poll] suno record-info:', JSON.stringify(sunoRes.data))
+      const data = sunoRes.data?.data
+      if (data?.status === 'SUCCESS') {
+        const videoUrl = data.video_url ?? null
+        const conn = await pool.getConnection()
+        try {
+          await conn.query("UPDATE suno_jobs SET status = 'done', result_url = ? WHERE id = ?", [videoUrl, job.id])
+        } finally { conn.release() }
+        res.json({ success: true, data: { status: 'done', videoUrl } })
+        return
+      }
+    } catch (pollErr: any) {
+      console.warn('[video/poll] record-info failed:', pollErr?.response?.status, pollErr?.message)
+    }
+
+    res.json({ success: true, data: { status: 'pending' } })
   } catch (err) { next(err) }
 })
 

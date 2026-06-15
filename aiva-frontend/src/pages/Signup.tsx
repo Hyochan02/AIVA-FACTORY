@@ -34,19 +34,28 @@ const Signup: React.FC = () => {
   const handleStep1 = (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    if (password !== confirm) { setError('비밀번호가 일치하지 않습니다.'); return }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) { setError('올바른 이메일 형식을 입력해주세요.'); return }
     if (password.length < 8)  { setError('비밀번호는 8자 이상이어야 합니다.'); return }
+    if (password !== confirm) { setError('비밀번호가 일치하지 않습니다.'); return }
     setStep(2)
   }
 
   const handleFinish = async () => {
     setError('')
+    if (!name.trim()) { setError('이름을 입력해주세요.'); return }
+    if (useCases.length === 0) { setError('사용 목적을 1개 이상 선택해주세요.'); return }
     setLoading(true)
     try {
       await register({ email, password, name, useCases })
       setStep(3)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '회원가입에 실패했습니다.')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : ''
+      if (message.includes('이미') || message.includes('duplicate') || message.includes('exist')) {
+        setError('이미 가입된 이메일입니다.')
+      } else {
+        setError('회원가입에 실패했습니다.')
+      }
       setStep(1)
     } finally {
       setLoading(false)
@@ -141,7 +150,7 @@ const Signup: React.FC = () => {
             <div className="flex gap-3">
               <Button variant="secondary" size="md" className="shrink-0 px-5" onClick={() => setStep(1)}>← 이전</Button>
               <Button variant="primary" size="md" fullWidth loading={loading}
-                onClick={handleFinish} disabled={!name.trim()}>
+                onClick={handleFinish}>
                 가입 완료
               </Button>
             </div>

@@ -18,8 +18,8 @@ const Login: React.FC = () => {
     try {
       await login({ email, password })
       navigate('/dashboard', { replace: true })
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '로그인에 실패했습니다.')
+    } catch {
+      setError('이메일 또는 비밀번호가 올바르지 않습니다.')
     } finally {
       setLoading(false)
     }
@@ -52,24 +52,6 @@ const Login: React.FC = () => {
             </Link>
             <h1 className="text-2xl font-black text-white">로그인</h1>
             <p className="text-sm text-slate-400 mt-1">계정이 없으신가요? <Link to="/signup" className="text-indigo-400 hover:text-indigo-300 font-semibold">무료 가입</Link></p>
-          </div>
-
-          <div className="flex flex-col gap-2 mb-6">
-            {[
-              { icon: 'G', label: 'Google로 계속하기', bg: 'bg-white', text: 'text-gray-800' },
-              { icon: '\u{1F535}', label: 'Facebook으로 계속하기', bg: 'bg-[#1877F2]', text: 'text-white' },
-            ].map(s => (
-              <button key={s.label} disabled
-                className={`${s.bg} ${s.text} w-full py-2.5 px-4 rounded-[12px] text-sm font-semibold flex items-center justify-center gap-3 border border-(--border-color) opacity-50 cursor-not-allowed`}>
-                <span className="font-black">{s.icon}</span> {s.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-3 mb-6">
-            <div className="flex-1 h-px bg-[var(--border-color)]" />
-            <span className="text-xs text-slate-500">또는 이메일로</span>
-            <div className="flex-1 h-px bg-[var(--border-color)]" />
           </div>
 
           {error && (

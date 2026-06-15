@@ -24,12 +24,17 @@ const router = Router()
 // ── Callback handlers (Suno → 우리 서버, 인증 불필요) ──────
 // authenticate 미들웨어보다 먼저 등록해야 Suno 웹훅이 401로 차단되지 않는다.
 router.post('/callback/:type', async (req, res) => {
+  console.log(`[callback/${req.params.type}] body:`, JSON.stringify(req.body))
   try {
-    const { data } = req.body
-    if (!data) return res.sendStatus(200)
+    // Suno가 { code, data: {...} } 또는 flat { task_id, ... } 두 형식으로 보낼 수 있음
+    const data = req.body?.data ?? req.body
+    if (!data || typeof data !== 'object') return res.sendStatus(200)
 
     const sunoTaskId = data.task_id ?? data.taskId
-    if (!sunoTaskId) return res.sendStatus(200)
+    if (!sunoTaskId) {
+      console.warn(`[callback/${req.params.type}] sunoTaskId missing`, JSON.stringify(data))
+      return res.sendStatus(200)
+    }
 
     const conn = await pool.getConnection()
     try {
@@ -37,7 +42,10 @@ router.post('/callback/:type', async (req, res) => {
         'SELECT id FROM suno_jobs WHERE suno_task_id = ?',
         [sunoTaskId]
       )
-      if (!rows.length) return res.sendStatus(200)
+      if (!rows.length) {
+        console.warn(`[callback/${req.params.type}] no job found for task ${sunoTaskId}`)
+        return res.sendStatus(200)
+      }
 
       const jobId = rows[0].id
       const type  = req.params.type
@@ -47,7 +55,7 @@ router.post('/callback/:type', async (req, res) => {
       let status: 'done' | 'error' = 'done'
 
       if (type === 'separate') {
-        const info = data.response ?? data.vocal_removal_info ?? {}
+        const info = data.response ?? data.vocal_removal_info ?? data ?? {}
         const [jobRows]: any = await conn.query(
           'SELECT track_id, extra FROM suno_jobs WHERE id = ?',
           [jobId]
@@ -67,17 +75,20 @@ router.post('/callback/:type', async (req, res) => {
           resultUrl = stems.instrumental ?? stems.vocals ?? null
         }
       } else if (type === 'wav') {
-        resultUrl = data.audioWavUrl ?? data.response?.audio_url ?? null
+        resultUrl = data.audioWavUrl ?? null
         if (!resultUrl) status = 'error'
+        console.log(`[callback/wav] audioWavUrl=${resultUrl}`)
       } else if (type === 'video') {
-        resultUrl = data.video_url ?? data.response?.video_url ?? null
+        resultUrl = data.video_url ?? null
         if (!resultUrl) status = 'error'
+        console.log(`[callback/video] video_url=${resultUrl}`)
       }
 
       await conn.query(
         'UPDATE suno_jobs SET status = ?, result_url = ?, extra = ? WHERE id = ?',
         [status, resultUrl, extra, jobId]
       )
+      console.log(`[callback/${type}] job ${jobId} → ${status}, url=${resultUrl}`)
     } finally { conn.release() }
 
     res.sendStatus(200)

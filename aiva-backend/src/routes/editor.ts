@@ -75,11 +75,11 @@ router.post('/callback/:type', async (req, res) => {
           resultUrl = stems.instrumental ?? stems.vocals ?? null
         }
       } else if (type === 'wav') {
-        resultUrl = data.audioWavUrl ?? null
+        resultUrl = data.response?.audioWavUrl ?? data.audioWavUrl ?? null
         if (!resultUrl) status = 'error'
         console.log(`[callback/wav] audioWavUrl=${resultUrl}`)
       } else if (type === 'video') {
-        resultUrl = data.video_url ?? null
+        resultUrl = data.response?.video_url ?? data.video_url ?? null
         if (!resultUrl) status = 'error'
         console.log(`[callback/video] video_url=${resultUrl}`)
       }
@@ -370,8 +370,8 @@ router.get('/wav/:jobId', async (req, res, next) => {
       )
       console.log('[wav/poll] suno record-info:', JSON.stringify(sunoRes.data))
       const data = sunoRes.data?.data
-      if (data?.status === 'SUCCESS') {
-        const wavUrl = data.audioWavUrl ?? null
+      if (data?.successFlag === 'SUCCESS') {
+        const wavUrl = data.response?.audioWavUrl ?? data.audioWavUrl ?? null
         const conn = await pool.getConnection()
         try {
           await conn.query("UPDATE suno_jobs SET status = 'done', result_url = ? WHERE id = ?", [wavUrl, job.id])
@@ -449,8 +449,8 @@ router.get('/video/:jobId', async (req, res, next) => {
       )
       console.log('[video/poll] suno record-info:', JSON.stringify(sunoRes.data))
       const data = sunoRes.data?.data
-      if (data?.status === 'SUCCESS') {
-        const videoUrl = data.video_url ?? null
+      if (data?.successFlag === 'SUCCESS') {
+        const videoUrl = data.response?.video_url ?? data.video_url ?? null
         const conn = await pool.getConnection()
         try {
           await conn.query("UPDATE suno_jobs SET status = 'done', result_url = ? WHERE id = ?", [videoUrl, job.id])

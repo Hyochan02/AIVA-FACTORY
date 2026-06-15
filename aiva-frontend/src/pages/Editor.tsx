@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "../components/common/Button";
+import { useAuthStore } from "../stores/authStore";
 import { getTracks } from "../api/tracks/getTracks";
 import { pollSeparate } from "../api/editor/pollSeparate";
 import { pollWav } from "../api/editor/pollWav";
@@ -115,6 +116,7 @@ const TAB_INFO: {
 const Editor: React.FC = () => {
   const [searchParams] = useSearchParams();
   const initTrackId = searchParams.get("trackId") ?? "";
+  const user = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
 
   // 기본 탭: 악곡을 선택하면 가장 먼저 "믹서/편집" 탭을 보여준다.
@@ -237,6 +239,8 @@ const Editor: React.FC = () => {
   const tabInfo = TAB_INFO.find((t) => t.id === activeTab)!;
   const currentCredit =
     activeTab === "separate" ? (separateType === "split_stem" ? 50 : 10) : tabInfo.credit;
+  const userCredits = user?.credits ?? 0;
+  const hasEnoughCredits = activeTab === "mixer" || userCredits >= currentCredit;
   const isPolling =
     (activeTab === "separate" && separatePoller.polling) ||
     (activeTab === "wav" && wavPoller.polling) ||
@@ -374,21 +378,32 @@ const Editor: React.FC = () => {
 
           {/* 믹서 탭은 자체 "믹스 저장/다운로드" 버튼을 쓰므로 별도 액션 버튼이 필요 없다 */}
           {activeTab !== "mixer" && (
-            <Button
-              variant="primary" size="lg" fullWidth onClick={handleAction}
-              disabled={loading || isPolling || !selectedTrackId}
-            >
-              {isPolling ? (
-                <span className="flex items-center gap-2">
-                  <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                  처리 중... (완료까지 30~120초)
-                </span>
-              ) : loading ? "요청 중..." : (
-                <span className="flex items-center gap-1.5">
-                  {tabInfo.icon} {tabInfo.label} 시작
-                </span>
+            <>
+              {!hasEnoughCredits && (
+                <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-900/30 border border-amber-700/40 text-sm text-amber-300">
+                  <span>⚠️</span>
+                  <span>
+                    크레딧이 부족합니다. 현재 <strong>{userCredits}크레딧</strong> 보유 중 /
+                    필요 <strong>{currentCredit}크레딧</strong>
+                  </span>
+                </div>
               )}
-            </Button>
+              <Button
+                variant="primary" size="lg" fullWidth onClick={handleAction}
+                disabled={loading || isPolling || !selectedTrackId || !hasEnoughCredits}
+              >
+                {isPolling ? (
+                  <span className="flex items-center gap-2">
+                    <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                    처리 중... (완료까지 30~120초)
+                  </span>
+                ) : loading ? "요청 중..." : (
+                  <span className="flex items-center gap-1.5">
+                    {tabInfo.icon} {tabInfo.label} 시작
+                  </span>
+                )}
+              </Button>
+            </>
           )}
         </div>
 

@@ -67,7 +67,7 @@ router.post('/callback/:type', async (req, res) => {
           resultUrl = stems.instrumental ?? stems.vocals ?? null
         }
       } else if (type === 'wav') {
-        resultUrl = data.response?.audio_url ?? null
+        resultUrl = data.audioWavUrl ?? data.response?.audio_url ?? null
         if (!resultUrl) status = 'error'
       } else if (type === 'video') {
         resultUrl = data.video_url ?? data.response?.video_url ?? null
@@ -179,7 +179,7 @@ async function getJob(jobId: string, userId: string) {
 async function getJobs(userId: string, type?: string, limit = 30) {
   const conn = await pool.getConnection()
   try {
-    const validTypes = ['separate', 'wav', 'video']
+    const validTypes = ['separate', 'wav', 'video', 'mixer']
     const useType = type && validTypes.includes(type) ? type : null
 
     const query = useType
@@ -336,6 +336,12 @@ router.get('/wav/:jobId', async (req, res, next) => {
 
     if (!process.env.SUNO_API_KEY) {
       res.json({ success: true, data: { status: 'done', wavUrl: 'https://example.com/mock.wav' } })
+      return
+    }
+
+    // 콜백으로 이미 완료된 경우 DB에서 바로 반환
+    if (job.status === 'done' && job.result_url) {
+      res.json({ success: true, data: { status: 'done', wavUrl: job.result_url } })
       return
     }
 

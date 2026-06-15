@@ -23,7 +23,7 @@ export interface VideoPayload {
 
 export interface JobHistory {
   id: string
-  type: 'separate' | 'wav' | 'video'
+  type: 'separate' | 'wav' | 'video' | 'mixer'
   status: 'pending' | 'done' | 'error'
   result_url?: string
   extra?: string

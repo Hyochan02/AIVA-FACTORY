@@ -113,7 +113,7 @@ const Editor: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>("mixer");
 
   const { data: historyData, isLoading: historyLoading } = useGetJobHistory(
-    activeTab === "mixer" ? undefined : (activeTab as JobHistory["type"]),
+    activeTab as JobHistory["type"],
   );
   const jobHistory = historyData?.jobs ?? [];
 

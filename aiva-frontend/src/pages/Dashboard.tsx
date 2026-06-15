@@ -205,16 +205,14 @@ const Dashboard: React.FC = () => {
                   onClick={() => navigate(`/player/${t.id}`)}
                 >
                   <div
-                    className={`w-11 h-11 rounded-xl bg-linear-to-br ${gradColor(t.id)} flex items-center justify-center text-white shrink-0`}
+                    className={`w-11 h-11 rounded-xl bg-linear-to-br ${gradColor(t.id)} flex items-center justify-center text-white shrink-0 overflow-hidden relative`}
                   >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
+                    {(t as Track & { cover_url?: string }).cover_url
+                      ? <img src={(t as Track & { cover_url?: string }).cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                      : <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                    }
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-semibold text-white truncate">

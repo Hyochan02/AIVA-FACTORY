@@ -305,9 +305,12 @@ const Explore: React.FC = () => {
                       className="bg-[#0d1340] border border-(--border-color) rounded-2xl overflow-hidden cursor-pointer hover:-translate-y-1 transition-transform duration-200 group"
                       onClick={() => navigate(`/player/${t.id}`)}
                     >
-                      <div className={`h-32 bg-linear-to-br ${gradColor(t.id)} flex items-center justify-center relative`}>
-                        <Music2 size={40} className="opacity-60 text-white" />
-                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className={`h-32 bg-linear-to-br ${gradColor(t.id)} flex items-center justify-center relative overflow-hidden`}>
+                        {(t as Track & { cover_url?: string }).cover_url && (
+                          <img src={(t as Track & { cover_url?: string }).cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                        )}
+                        <Music2 size={40} className="relative z-10 opacity-60 text-white" />
+                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10">
                           <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
                             <Play size={16} fill="white" className="text-white" />
                           </div>

@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Globe, LayoutGrid, List, Lock, Music2, Play } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/common/Button'
+import { Badge } from '../components/common/Badge'
 import { TrackCard } from '../components/tracks/TrackCard'
 import { Waveform } from '../components/common/Waveform'
 import { useGetTracks } from '../hooks/queries/useGetTracks'
@@ -113,6 +114,7 @@ const Library: React.FC = () => {
                   track={t}
                   onClick={() => navigate(`/player/${t.id}`)}
                   onVisibilityToggle={handleVisibilityToggle}
+                  onEdit={(e) => { e.stopPropagation(); navigate(`/editor?trackId=${t.id}`) }}
                   isToggling={togglingId === t.id}
                 />
               ))
@@ -137,8 +139,11 @@ const Library: React.FC = () => {
                   className={`flex items-center gap-4 p-4 hover:bg-navy-800/40 transition-colors cursor-pointer ${i < tracks.length - 1 ? 'border-b border-(--border-color)' : ''}`}
                   onClick={() => navigate(`/player/${t.id}`)}>
                   <span className="w-5 text-xs text-slate-500 text-center">{i+1}</span>
-                  <div className={`w-10 h-10 rounded-xl bg-linear-to-br ${gradColor(t.id)} flex items-center justify-center text-white shrink-0`}>
-                    <Play size={14} fill="currentColor" />
+                  <div className={`w-10 h-10 rounded-xl bg-linear-to-br ${gradColor(t.id)} flex items-center justify-center text-white shrink-0 overflow-hidden relative`}>
+                    {(t as Track & { cover_url?: string }).cover_url
+                      ? <img src={(t as Track & { cover_url?: string }).cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                      : <Play size={14} fill="currentColor" />
+                    }
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-semibold text-white truncate">{t.title}</div>
@@ -148,7 +153,7 @@ const Library: React.FC = () => {
                           V{t.version_num}
                         </span>
                       )}
-                      <span className="text-xs text-slate-400">{t.genre}</span>
+                      {t.genre && <Badge variant="info">{t.genre}</Badge>}
                       <button
                         onClick={e => handleVisibilityToggle(e, t)}
                         disabled={togglingId === t.id || togglingAny}

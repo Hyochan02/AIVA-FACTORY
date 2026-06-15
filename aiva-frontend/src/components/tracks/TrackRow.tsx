@@ -45,8 +45,11 @@ export const TrackRow: React.FC<TrackRowProps> = ({
       </div>
     </div>
 
-    <div className={`w-10 h-10 rounded-xl bg-linear-to-br ${gradColor(track.id)} flex items-center justify-center text-white shrink-0`}>
-      <Play size={15} fill="currentColor" />
+    <div className={`w-10 h-10 rounded-xl bg-linear-to-br ${gradColor(track.id)} flex items-center justify-center text-white shrink-0 overflow-hidden relative`}>
+      {(track as Track & { cover_url?: string }).cover_url
+        ? <img src={(track as Track & { cover_url?: string }).cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        : <Play size={15} fill="currentColor" />
+      }
     </div>
   </div>
 )

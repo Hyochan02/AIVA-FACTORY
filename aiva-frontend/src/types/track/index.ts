@@ -9,8 +9,8 @@ export interface Track {
   bpm?: number
   duration: number
   status: TrackStatus
-  audioUrl?: string
-  coverUrl?: string
+  audio_url?: string
+  cover_url?: string
   createdAt: string
   isPublic: boolean
   likes: number

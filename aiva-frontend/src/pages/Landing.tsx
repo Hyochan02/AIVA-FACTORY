@@ -8,7 +8,7 @@ import {
   Download,
   Zap,
 } from "lucide-react";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Badge } from "../components/common/Badge";
 import { useGetTrending } from "../hooks/queries/useGetTrending";
@@ -91,6 +91,10 @@ const Landing: React.FC = () => {
 
   const [playingId, setPlayingId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    return () => { audioRef.current?.pause() }
+  }, [])
 
   const togglePlay = (
     track: Track & { audio_url?: string },

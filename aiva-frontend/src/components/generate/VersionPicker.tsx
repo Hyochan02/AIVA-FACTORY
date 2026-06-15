@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Music2, Play, Pause } from 'lucide-react'
 import { Button } from '../common/Button'
 import type { TrackVersion } from '../../types/generate'
@@ -18,6 +18,10 @@ export const VersionPicker: React.FC<VersionPickerProps> = ({
 }) => {
   const [playingId, setPlayingId] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  useEffect(() => {
+    return () => { audioRef.current?.pause() }
+  }, [])
 
   const togglePreview = (v: TrackVersion, e: React.MouseEvent) => {
     e.stopPropagation()

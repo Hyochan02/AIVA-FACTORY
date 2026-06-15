@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { useNavigate, useSearchParams, useBlocker } from "react-router-dom";
 import { Music2, CheckCircle2, XCircle, Piano } from "lucide-react";
 import { usePollStatus } from "../hooks/queries/usePollStatus";
 import type { TrackVersion } from "../types/generate";
@@ -35,8 +35,42 @@ const Generating: React.FC = () => {
   const isDone = status?.status === "done";
   const isError = status?.status === "error" || fetchError;
   const versions = status?.versions ?? [];
+  const isGenerating = !isDone && !isError;
+
+  const blocker = useBlocker(isGenerating);
+
+  useEffect(() => {
+    if (!isGenerating) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isGenerating]);
 
   return (
+    <>
+    {blocker.state === "blocked" && (
+      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center px-4">
+        <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-8 max-w-sm w-full space-y-5">
+          <div>
+            <h3 className="font-bold text-white text-lg mb-2">생성 중에 나가시겠어요?</h3>
+            <p className="text-sm text-slate-400 leading-relaxed">
+              음악 생성이 진행 중입니다. 지금 떠나도 서버에서 생성은 계속되며, 결과는 라이브러리에서 확인할 수 있습니다.
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Button variant="secondary" size="sm" fullWidth onClick={() => blocker.reset()}>
+              계속 대기하기
+            </Button>
+            <button
+              onClick={() => blocker.proceed()}
+              className="flex-1 py-2 rounded-lg bg-rose-600/20 border border-rose-500/40 text-rose-400 text-sm font-semibold hover:bg-rose-600/30 transition-all"
+            >
+              지금 나가기
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
     <div className="w-full max-w-lg text-center space-y-10 py-8">
       <div className="relative w-32 h-32 mx-auto">
@@ -148,6 +182,7 @@ const Generating: React.FC = () => {
       )}
     </div>
     </div>
+    </>
   );
 };
 

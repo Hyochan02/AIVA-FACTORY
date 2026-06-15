@@ -20,6 +20,74 @@ import { pool } from '../config/database'
 import { v4 as uuidv4 } from 'uuid'
 
 const router = Router()
+
+// ── Callback handlers (Suno → 우리 서버, 인증 불필요) ──────
+// authenticate 미들웨어보다 먼저 등록해야 Suno 웹훅이 401로 차단되지 않는다.
+router.post('/callback/:type', async (req, res) => {
+  try {
+    const { data } = req.body
+    if (!data) return res.sendStatus(200)
+
+    const sunoTaskId = data.task_id ?? data.taskId
+    if (!sunoTaskId) return res.sendStatus(200)
+
+    const conn = await pool.getConnection()
+    try {
+      const [rows]: any = await conn.query(
+        'SELECT id FROM suno_jobs WHERE suno_task_id = ?',
+        [sunoTaskId]
+      )
+      if (!rows.length) return res.sendStatus(200)
+
+      const jobId = rows[0].id
+      const type  = req.params.type
+
+      let resultUrl: string | null = null
+      let extra: string | null = null
+      let status: 'done' | 'error' = 'done'
+
+      if (type === 'separate') {
+        const info = data.response ?? data.vocal_removal_info ?? {}
+        const [jobRows]: any = await conn.query(
+          'SELECT track_id, extra FROM suno_jobs WHERE id = ?',
+          [jobId]
+        )
+        const trackId: string | null = jobRows[0]?.track_id ?? null
+        const stems = trackId ? await saveStems(conn, trackId, info) : {}
+
+        if (Object.keys(stems).length === 0) {
+          status = 'error'
+        } else {
+          const prevExtra = (() => {
+            const raw = jobRows[0]?.extra
+            if (!raw) return {}
+            return typeof raw === 'string' ? JSON.parse(raw) : raw
+          })()
+          extra = JSON.stringify({ ...prevExtra, stems })
+          resultUrl = stems.instrumental ?? stems.vocals ?? null
+        }
+      } else if (type === 'wav') {
+        resultUrl = data.response?.audio_url ?? null
+        if (!resultUrl) status = 'error'
+      } else if (type === 'video') {
+        resultUrl = data.response?.video_url ?? null
+        if (!resultUrl) status = 'error'
+      }
+
+      await conn.query(
+        'UPDATE suno_jobs SET status = ?, result_url = ?, extra = ? WHERE id = ?',
+        [status, resultUrl, extra, jobId]
+      )
+    } finally { conn.release() }
+
+    res.sendStatus(200)
+  } catch (err) {
+    console.error('Callback error:', err)
+    res.sendStatus(200)
+  }
+})
+
+// 이하 모든 라우트는 인증 필요
 router.use(authenticate)
 
 const SUNO_BASE     = () => process.env.SUNO_API_BASE_URL || 'https://api.sunoapi.org'
@@ -411,76 +479,6 @@ router.get('/jobs', async (req, res, next) => {
     const jobs  = await getJobs(req.user!.id, type, isNaN(limit) ? 30 : limit)
     res.json({ success: true, data: { jobs } })
   } catch (err) { next(err) }
-})
-
-// ── Callback handlers (Suno → 우리 서버, 인증 불필요) ──────
-router.post('/callback/:type', async (req, res) => {
-  // 콜백 수신 시 suno_jobs 테이블 업데이트
-  try {
-    const { data } = req.body
-    if (!data) return res.sendStatus(200)
-
-    const sunoTaskId = data.task_id ?? data.taskId
-    if (!sunoTaskId) return res.sendStatus(200)
-
-    const conn = await pool.getConnection()
-    try {
-      // task_id로 job 조회
-      const [rows]: any = await conn.query(
-        'SELECT id FROM suno_jobs WHERE suno_task_id = ?',
-        [sunoTaskId]
-      )
-      if (!rows.length) return res.sendStatus(200)
-
-      const jobId = rows[0].id
-      const type  = req.params.type
-
-      // 결과 URL 추출 (타입별로 다름)
-      let resultUrl: string | null = null
-      let extra: string | null = null
-      let status: 'done' | 'error' = 'done'
-
-      if (type === 'separate') {
-        // split_stem(또는 separate_vocal) 응답에서 최대 12개 스템 URL을
-        // 모두 파싱해 track_stems 테이블에 upsert한다.
-        const info = data.response ?? data.vocal_removal_info ?? {}
-        const [jobRows]: any = await conn.query(
-          'SELECT track_id, extra FROM suno_jobs WHERE id = ?',
-          [jobId]
-        )
-        const trackId: string | null = jobRows[0]?.track_id ?? null
-        const stems = trackId ? await saveStems(conn, trackId, info) : {}
-
-        if (Object.keys(stems).length === 0) {
-          status = 'error'
-        } else {
-          const prevExtra = (() => {
-            const raw = jobRows[0]?.extra
-            if (!raw) return {}
-            return typeof raw === 'string' ? JSON.parse(raw) : raw
-          })()
-          extra = JSON.stringify({ ...prevExtra, stems })
-          resultUrl = stems.instrumental ?? stems.vocals ?? null
-        }
-      } else if (type === 'wav') {
-        resultUrl = data.response?.audio_url ?? null
-        if (!resultUrl) status = 'error'
-      } else if (type === 'video') {
-        resultUrl = data.response?.video_url ?? null
-        if (!resultUrl) status = 'error'
-      }
-
-      await conn.query(
-        'UPDATE suno_jobs SET status = ?, result_url = ?, extra = ? WHERE id = ?',
-        [status, resultUrl, extra, jobId]
-      )
-    } finally { conn.release() }
-
-    res.sendStatus(200)
-  } catch (err) {
-    console.error('Callback error:', err)
-    res.sendStatus(200)
-  }
 })
 
 export default router

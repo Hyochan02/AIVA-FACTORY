@@ -7,7 +7,7 @@ import {
   ChevronDown,
   Loader2,
 } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useBlocker } from "react-router-dom";
 import { Button } from "../components/common/Button";
 import { useAuthStore } from "../stores/authStore";
 import { getTracks } from "../api/tracks/getTracks";
@@ -140,6 +140,15 @@ const Editor: React.FC = () => {
   const [tracks, setTracks] = useState<TrackItem[]>([]);
   const [selectedTrackId, setSelectedTrackId] = useState(initTrackId);
   const [loading, setLoading] = useState(false);
+
+  const blocker = useBlocker(loading);
+
+  useEffect(() => {
+    if (!loading) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [loading]);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
@@ -247,6 +256,30 @@ const Editor: React.FC = () => {
     (activeTab === "video" && videoPoller.polling);
 
   return (
+    <>
+    {blocker.state === "blocked" && (
+      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center px-4">
+        <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-8 max-w-sm w-full space-y-5">
+          <div>
+            <h3 className="font-bold text-white text-lg mb-2">작업 중에 나가시겠어요?</h3>
+            <p className="text-sm text-slate-400 leading-relaxed">
+              스템 분리가 진행 중입니다. 지금 페이지를 떠나면 작업이 중단될 수 있습니다.
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Button variant="secondary" size="sm" fullWidth onClick={() => blocker.reset()}>
+              계속 대기하기
+            </Button>
+            <button
+              onClick={() => blocker.proceed()}
+              className="flex-1 py-2 rounded-lg bg-rose-600/20 border border-rose-500/40 text-rose-400 text-sm font-semibold hover:bg-rose-600/30 transition-all"
+            >
+              지금 나가기
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex gap-2 overflow-x-auto pb-1">
         {TAB_INFO.map((t) => (
@@ -468,6 +501,7 @@ const Editor: React.FC = () => {
         </div>
       )}
     </div>
+    </>
   );
 };
 

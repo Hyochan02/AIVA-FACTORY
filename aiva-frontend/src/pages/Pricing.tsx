@@ -22,7 +22,7 @@ const Pricing: React.FC = () => {
   const { data: plans = [], isLoading: plansLoading } = useGetPlans()
   const { data: subData } = useGetCurrentSubscription(!!user)
 
-  const currentPlan = subData?.plan ?? user?.plan ?? 'free'
+  const currentPlan = (subData?.plan ?? user?.plan ?? 'free').toLowerCase()
 
   const getCtaVariant = (planId: string): 'primary' | 'secondary' | 'ghost' =>
     planId === currentPlan ? 'ghost' : planId === 'pro' ? 'primary' : 'secondary'
@@ -33,13 +33,7 @@ const Pricing: React.FC = () => {
         <h1 className="text-3xl font-black text-white mb-2">심플한 요금제</h1>
         <p className="text-slate-400">처음엔 무료로, 필요할 때 업그레이드하세요.</p>
 
-        {/* 준비 중 배너 */}
-        <div className="inline-flex items-center gap-2 mt-6 px-4 py-2.5 rounded-xl bg-amber-900/30 border border-amber-700/40 text-sm text-amber-300">
-          <span>🚧</span>
-          <span>유료 구독 서비스는 현재 준비 중입니다. 곧 만나보실 수 있어요!</span>
-        </div>
-
-        <div className="inline-flex items-center gap-3 mt-4 bg-[#0d1340] border border-(--border-color) rounded-full p-1">
+        <div className="inline-flex items-center gap-3 mt-6 bg-[#0d1340] border border-(--border-color) rounded-full p-1">
           {(['monthly','yearly'] as const).map(b => (
             <button key={b} onClick={() => setBilling(b)}
               className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${billing === b ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>
@@ -99,7 +93,7 @@ const Pricing: React.FC = () => {
                 </Button>
               ) : (
                 <Button variant={getCtaVariant(plan.id)} fullWidth disabled>
-                  🚧 서비스 준비 중
+                  {plan.id === 'pro' ? 'Pro 시작하기' : '시작하기'}
                 </Button>
               )}
             </div>

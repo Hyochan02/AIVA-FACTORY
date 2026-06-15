@@ -47,7 +47,7 @@ router.get('/current', authenticate, async (req, res, next) => {
     const [[userRow]] = await pool.query('SELECT plan FROM users WHERE id = ?', [req.user!.id]) as unknown[][]
 
     res.json({ success: true, data: {
-      plan:               (userRow as Record<string, unknown>)?.plan ?? 'free',
+      plan:               ((userRow as Record<string, unknown>)?.plan as string ?? 'free').toLowerCase(),
       status:             sub?.status ?? 'active',
       currentPeriodEnd:   sub?.current_period_end ?? null,
       cancelAtPeriodEnd:  sub?.cancel_at_period_end ?? false,

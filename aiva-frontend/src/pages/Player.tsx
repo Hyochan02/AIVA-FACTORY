@@ -344,7 +344,7 @@ const Player: React.FC = () => {
               </button>
             </div>
             <div className="flex items-center gap-2">
-              {currentAudioUrl && (
+              {user && track?.user_id === user.id && currentAudioUrl && (
                 <a
                   href={currentAudioUrl}
                   download

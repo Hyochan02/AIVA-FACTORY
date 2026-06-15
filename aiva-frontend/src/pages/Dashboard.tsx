@@ -78,7 +78,6 @@ const Dashboard: React.FC = () => {
     : null;
 
   const recentTracks: Track[] = tracksData?.items ?? [];
-  const credits = statsData?.creditsRemaining ?? user?.credits ?? 0;
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
@@ -148,8 +147,7 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-[1fr_340px] gap-6 items-stretch">
-        <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6 flex flex-col">
+      <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6 flex flex-col">
           <div className="flex items-center justify-between mb-5">
             <h2 className="font-bold text-white">최근 트랙</h2>
             <Link
@@ -227,48 +225,13 @@ const Dashboard: React.FC = () => {
               ))}
             </div>
           )}
-        </div>
-
-        <div className="flex flex-col gap-4 h-full">
-          <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6 flex flex-col flex-1">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="font-bold text-white">크레딧 현황</h2>
-            </div>
-            <div className="flex-1" />
-            <div>
-              <div className="flex justify-between items-center text-sm mb-3">
-                <span className="text-slate-400">남은 크레딧</span>
-                <span className="text-xl font-black text-white">
-                  {credits}{" "}
-                  <span className="text-sm font-normal text-slate-400">
-                    / 100
-                  </span>
-                </span>
-              </div>
-              <div className="h-2 bg-navy-800 rounded-full overflow-hidden mb-4">
-                <div
-                  className="h-full bg-linear-to-r from-indigo-600 to-violet-600 rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(credits, 100)}%` }}
-                />
-              </div>
-              <Button
-                variant="primary"
-                size="sm"
-                fullWidth
-                onClick={() => navigate("/pricing")}
-              >
-                크레딧 충전 →
-              </Button>
-            </div>
-          </div>
-
-          {user?.createdAt && (
-            <div className="text-xs text-slate-500 text-center">
-              가입일 {formatDate(user.createdAt)}
-            </div>
-          )}
-        </div>
       </div>
+
+      {user?.createdAt && (
+        <div className="text-xs text-slate-500 text-center">
+          가입일 {formatDate(user.createdAt)}
+        </div>
+      )}
     </div>
   );
 };

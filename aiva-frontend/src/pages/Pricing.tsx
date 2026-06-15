@@ -1,12 +1,9 @@
 import { Check, X } from 'lucide-react'
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/common/Button'
 import { Badge } from '../components/common/Badge'
-import { SubscribePlanModal } from '../components/modals/SubscribePlanModal'
 import { useGetPlans } from '../hooks/queries/useGetPlans'
 import { useGetCurrentSubscription } from '../hooks/queries/useGetCurrentSubscription'
-import { useSubscribePlan } from '../hooks/mutations/useSubscribePlan'
 import { useAuthStore } from '../stores/authStore'
 
 const PLAN_MISSING: Record<string, string[]> = {
@@ -17,64 +14,32 @@ const PLAN_MISSING: Record<string, string[]> = {
 const PLAN_BADGES: Record<string, string | null> = {
   free: null, pro: '가장 인기', enterprise: null,
 }
-const PLAN_CTA: Record<string, string> = {
-  free: '현재 플랜', pro: 'Pro 시작하기', enterprise: '문의하기',
-}
 
 const Pricing: React.FC = () => {
-  const navigate      = useNavigate()
-  const user          = useAuthStore((s) => s.user)
-  const refreshUser   = useAuthStore((s) => s.refreshUser)
-
-  const [billing, setBilling]         = useState<'monthly' | 'yearly'>('monthly')
-  const [showModal, setShowModal]     = useState(false)
-  const [selectedPlan, setSelectedPlan] = useState('')
-  const [subError, setSubError]       = useState('')
+  const user        = useAuthStore((s) => s.user)
+  const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly')
 
   const { data: plans = [], isLoading: plansLoading } = useGetPlans()
   const { data: subData } = useGetCurrentSubscription(!!user)
-  const { mutate: subscribe, isPending: subscribing } = useSubscribePlan()
 
   const currentPlan = subData?.plan ?? user?.plan ?? 'free'
 
-  const handleSelect = (planId: string) => {
-    if (planId === 'free' || planId === currentPlan) return
-    if (planId === 'enterprise') { window.open('mailto:hello@aiva-factory.com'); return }
-    if (!user) { navigate('/login'); return }
-    setSelectedPlan(planId)
-    setSubError('')
-    setShowModal(true)
-  }
-
-  const handleSubscribe = () => {
-    setSubError('')
-    subscribe(
-      { planId: selectedPlan, billing },
-      {
-        onSuccess: async () => {
-          await refreshUser()
-          setShowModal(false)
-          navigate('/dashboard')
-        },
-        onError: (e) => {
-          setSubError(e.message || '구독 처리 중 오류가 발생했습니다.')
-        },
-      },
-    )
-  }
-
-  const getCtaVariant = (planId: string): 'primary' | 'secondary' | 'ghost' => {
-    if (planId === currentPlan) return 'ghost'
-    if (planId === 'pro') return 'primary'
-    return 'secondary'
-  }
+  const getCtaVariant = (planId: string): 'primary' | 'secondary' | 'ghost' =>
+    planId === currentPlan ? 'ghost' : planId === 'pro' ? 'primary' : 'secondary'
 
   return (
     <div className="max-w-5xl mx-auto space-y-10">
       <div className="text-center">
         <h1 className="text-3xl font-black text-white mb-2">심플한 요금제</h1>
         <p className="text-slate-400">처음엔 무료로, 필요할 때 업그레이드하세요.</p>
-        <div className="inline-flex items-center gap-3 mt-6 bg-[#0d1340] border border-(--border-color) rounded-full p-1">
+
+        {/* 준비 중 배너 */}
+        <div className="inline-flex items-center gap-2 mt-6 px-4 py-2.5 rounded-xl bg-amber-900/30 border border-amber-700/40 text-sm text-amber-300">
+          <span>🚧</span>
+          <span>유료 구독 서비스는 현재 준비 중입니다. 곧 만나보실 수 있어요!</span>
+        </div>
+
+        <div className="inline-flex items-center gap-3 mt-4 bg-[#0d1340] border border-(--border-color) rounded-full p-1">
           {(['monthly','yearly'] as const).map(b => (
             <button key={b} onClick={() => setBilling(b)}
               className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${billing === b ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>
@@ -126,14 +91,17 @@ const Pricing: React.FC = () => {
                   </div>
                 ))}
               </div>
-              <Button
-                variant={getCtaVariant(plan.id)}
-                fullWidth
-                disabled={plan.id === currentPlan}
-                onClick={() => handleSelect(plan.id)}
-              >
-                {plan.id === currentPlan ? '현재 플랜' : PLAN_CTA[plan.id] ?? '시작하기'}
-              </Button>
+              {plan.id === currentPlan ? (
+                <Button variant="ghost" fullWidth disabled>현재 플랜</Button>
+              ) : plan.id === 'enterprise' ? (
+                <Button variant="secondary" fullWidth onClick={() => window.open('mailto:hello@aiva-factory.com')}>
+                  문의하기
+                </Button>
+              ) : (
+                <Button variant={getCtaVariant(plan.id)} fullWidth disabled>
+                  🚧 서비스 준비 중
+                </Button>
+              )}
             </div>
           ))}
         </div>
@@ -173,17 +141,6 @@ const Pricing: React.FC = () => {
           </table>
         </div>
       </div>
-
-      {showModal && (
-        <SubscribePlanModal
-          planId={selectedPlan}
-          billing={billing}
-          error={subError}
-          isPending={subscribing}
-          onConfirm={handleSubscribe}
-          onClose={() => setShowModal(false)}
-        />
-      )}
     </div>
   )
 }

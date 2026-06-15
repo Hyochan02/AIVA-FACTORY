@@ -77,7 +77,7 @@ const Login: React.FC = () => {
                 className="w-full bg-[#0d1340] border border-(--border-color) rounded-[12px] px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
               />
               <div className="flex justify-end mt-1.5">
-                <a href="/forgot-password" className="text-xs text-indigo-400 hover:text-indigo-300">비밀번호 찾기</a>
+                <Link to="/forgot-password" className="text-xs text-indigo-400 hover:text-indigo-300">비밀번호 찾기</Link>
               </div>
             </div>
             <Button type="submit" variant="primary" size="md" fullWidth loading={loading} className="mt-2">

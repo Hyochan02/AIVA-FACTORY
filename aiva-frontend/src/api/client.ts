@@ -14,9 +14,10 @@ const authHeader = (): Record<string, string> => {
 
 const handleRes = async (res: Response, path?: string) => {
   if (res.status === 401) {
-    // /auth 경로(로그인·회원가입) 외에는 토큰 삭제 안 함 — 컨테이너 재시작 등 일시적 오류로 강제 로그아웃되지 않도록
-    const isAuthRoute = path?.startsWith('/auth')
-    if (isAuthRoute) {
+    // 로그인·회원가입 시도 자체의 401은 "자격증명 오류"이므로 리다이렉트 없이 에러만 throw
+    // 그 외 401은 토큰 만료 → 삭제 후 로그인 페이지로 이동
+    const isCredentialAttempt = path === '/auth/login' || path === '/auth/register'
+    if (!isCredentialAttempt) {
       localStorage.removeItem('aiva_token')
       window.location.href = '/login'
     }

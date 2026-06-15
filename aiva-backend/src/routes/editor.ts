@@ -307,6 +307,8 @@ router.get('/separate/:jobId', async (req, res, next) => {
 // ──────────────────────────────────────────────────────────
 // 2. WAV 변환
 // ──────────────────────────────────────────────────────────
+const WAV_CREDIT_COST = 2
+
 router.post('/wav', async (req, res, next) => {
   try {
     const { trackId } = z.object({
@@ -321,23 +323,45 @@ router.post('/wav', async (req, res, next) => {
       return
     }
 
-    // v3부터 버전(variation)마다 별도의 tracks row 이므로,
-    // 해당 트랙 자신의 suno_audio_id를 그대로 사용하면 된다.
-    const sunoRes = await axios.post(
-      `${SUNO_BASE()}/api/v1/wav/generate`,
-      {
-        taskId:      track.suno_task_id,
-        audioId:     track.suno_audio_id,
-        callBackUrl: `${CALLBACK_BASE()}/api/editor/callback/wav`,
-      },
-      { headers: SUNO_HEADERS(), timeout: 15000 }
-    )
+    const conn = await pool.getConnection()
+    try {
+      // 1. 크레딧 잔액 확인
+      const [creditRows] = await conn.query(
+        'SELECT balance FROM credit_history WHERE user_id = ? ORDER BY created_at DESC LIMIT 1',
+        [req.user!.id]
+      )
+      const balance = ((creditRows as Record<string, unknown>[])[0]?.balance as number) ?? 0
+      if (balance < WAV_CREDIT_COST) {
+        res.status(402).json({ success: false, error: '크레딧이 부족합니다.', code: 'INSUFFICIENT_CREDITS' })
+        return
+      }
 
-    console.log('[wav/generate] suno response:', JSON.stringify(sunoRes.data))
-    const sunoTaskId: string = sunoRes.data?.data?.taskId ?? sunoRes.data?.data?.task_id ?? sunoRes.data?.taskId
-    console.log('[wav/generate] extracted sunoTaskId:', sunoTaskId)
-    const jobId = await saveJob('wav', trackId, sunoTaskId, req.user!.id, '{}')
-    res.json({ success: true, data: { jobId, sunoTaskId } })
+      // 2. Suno API 호출
+      const sunoRes = await axios.post(
+        `${SUNO_BASE()}/api/v1/wav/generate`,
+        {
+          taskId:      track.suno_task_id,
+          audioId:     track.suno_audio_id,
+          callBackUrl: `${CALLBACK_BASE()}/api/editor/callback/wav`,
+        },
+        { headers: SUNO_HEADERS(), timeout: 15000 }
+      )
+
+      console.log('[wav/generate] suno response:', JSON.stringify(sunoRes.data))
+      const sunoTaskId: string = sunoRes.data?.data?.taskId ?? sunoRes.data?.data?.task_id ?? sunoRes.data?.taskId
+      console.log('[wav/generate] extracted sunoTaskId:', sunoTaskId)
+
+      // 3. 크레딧 차감
+      const newBalance = balance - WAV_CREDIT_COST
+      await conn.query(
+        `INSERT INTO credit_history (id, user_id, type, amount, balance, description, track_id)
+         VALUES (?, ?, 'usage', ?, ?, 'WAV 변환', ?)`,
+        [uuidv4(), req.user!.id, -WAV_CREDIT_COST, newBalance, trackId]
+      )
+
+      const jobId = await saveJob('wav', trackId, sunoTaskId, req.user!.id, '{}')
+      res.json({ success: true, data: { jobId, sunoTaskId, creditsUsed: WAV_CREDIT_COST, creditsRemaining: newBalance } })
+    } finally { conn.release() }
   } catch (err) { next(err) }
 })
 
@@ -390,6 +414,8 @@ router.get('/wav/:jobId', async (req, res, next) => {
 // ──────────────────────────────────────────────────────────
 // 3. 뮤직비디오 생성
 // ──────────────────────────────────────────────────────────
+const VIDEO_CREDIT_COST = 5
+
 router.post('/video', async (req, res, next) => {
   try {
     const { trackId } = z.object({ trackId: z.string().uuid() }).parse(req.body)
@@ -402,21 +428,45 @@ router.post('/video', async (req, res, next) => {
       return
     }
 
-    const sunoRes = await axios.post(
-      `${SUNO_BASE()}/api/v1/mp4/generate`,
-      {
-        taskId:      track.suno_task_id,
-        audioId:     track.suno_audio_id,
-        author:      'AIVA FACTORY',
-        domainName:  'aiva-factory.p-e.kr',
-        callBackUrl: `${CALLBACK_BASE()}/api/editor/callback/video`,
-      },
-      { headers: SUNO_HEADERS(), timeout: 15000 }
-    )
+    const conn = await pool.getConnection()
+    try {
+      // 1. 크레딧 잔액 확인
+      const [creditRows] = await conn.query(
+        'SELECT balance FROM credit_history WHERE user_id = ? ORDER BY created_at DESC LIMIT 1',
+        [req.user!.id]
+      )
+      const balance = ((creditRows as Record<string, unknown>[])[0]?.balance as number) ?? 0
+      if (balance < VIDEO_CREDIT_COST) {
+        res.status(402).json({ success: false, error: '크레딧이 부족합니다.', code: 'INSUFFICIENT_CREDITS' })
+        return
+      }
 
-    const sunoTaskId: string = sunoRes.data?.data?.taskId
-    const jobId = await saveJob('video', trackId, sunoTaskId, req.user!.id, '{}')
-    res.json({ success: true, data: { jobId, sunoTaskId } })
+      // 2. Suno API 호출
+      const sunoRes = await axios.post(
+        `${SUNO_BASE()}/api/v1/mp4/generate`,
+        {
+          taskId:      track.suno_task_id,
+          audioId:     track.suno_audio_id,
+          author:      'AIVA FACTORY',
+          domainName:  'aiva-factory.p-e.kr',
+          callBackUrl: `${CALLBACK_BASE()}/api/editor/callback/video`,
+        },
+        { headers: SUNO_HEADERS(), timeout: 15000 }
+      )
+
+      const sunoTaskId: string = sunoRes.data?.data?.taskId ?? sunoRes.data?.data?.task_id ?? sunoRes.data?.taskId
+
+      // 3. 크레딧 차감
+      const newBalance = balance - VIDEO_CREDIT_COST
+      await conn.query(
+        `INSERT INTO credit_history (id, user_id, type, amount, balance, description, track_id)
+         VALUES (?, ?, 'usage', ?, ?, '뮤직비디오 생성', ?)`,
+        [uuidv4(), req.user!.id, -VIDEO_CREDIT_COST, newBalance, trackId]
+      )
+
+      const jobId = await saveJob('video', trackId, sunoTaskId, req.user!.id, '{}')
+      res.json({ success: true, data: { jobId, sunoTaskId, creditsUsed: VIDEO_CREDIT_COST, creditsRemaining: newBalance } })
+    } finally { conn.release() }
   } catch (err) { next(err) }
 })
 

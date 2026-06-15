@@ -19,6 +19,10 @@ const ForgotPassword: React.FC = () => {
         const res = data as { _devToken?: string } | null
         if (res?._devToken) setDevToken(res._devToken)
       },
+      onError: () => {
+        // 이메일 등록 여부 노출 방지: 에러 시에도 동일한 안내 화면 표시
+        setSent(true)
+      },
     })
   }
 

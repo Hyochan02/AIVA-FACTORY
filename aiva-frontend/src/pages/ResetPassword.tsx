@@ -27,8 +27,8 @@ const ResetPassword: React.FC = () => {
           setDone(true)
           setTimeout(() => navigate('/login'), 3000)
         },
-        onError: (err) => {
-          setError(err.message || '비밀번호 재설정에 실패했습니다.')
+        onError: () => {
+          setError('유효하지 않은 링크입니다. 비밀번호 찾기를 다시 시도해주세요.')
         },
       },
     )
@@ -81,7 +81,12 @@ const ResetPassword: React.FC = () => {
                   />
                 </div>
                 {error && (
-                  <div className="bg-red-900/30 border border-red-700/40 rounded-xl p-3 text-sm text-red-300">{error}</div>
+                  <div className="bg-red-900/30 border border-red-700/40 rounded-xl p-3 text-sm text-red-300 space-y-2">
+                    <p>{error}</p>
+                    <Link to="/forgot-password" className="block text-indigo-400 hover:text-indigo-300 transition-colors">
+                      비밀번호 찾기로 이동 →
+                    </Link>
+                  </div>
                 )}
                 <Button type="submit" variant="primary" size="md" fullWidth disabled={isPending || !token}>
                   {isPending ? '변경 중...' : '비밀번호 변경'}

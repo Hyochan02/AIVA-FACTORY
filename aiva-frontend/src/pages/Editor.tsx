@@ -262,8 +262,8 @@ const Editor: React.FC = () => {
         ))}
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-5">
+      <div className={`grid gap-6 ${activeTab !== "mixer" ? "lg:grid-cols-3" : ""}`}>
+        <div className={`space-y-5 ${activeTab !== "mixer" ? "lg:col-span-2" : ""}`}>
           <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-5">
             <div className="flex items-center gap-3 mb-1">
               <span className="text-indigo-300">{tabInfo.icon}</span>

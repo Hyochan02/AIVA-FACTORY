@@ -252,9 +252,11 @@ const Player: React.FC = () => {
                   }
                 </button>
               )}
-              <Button variant="secondary" size="sm" onClick={() => navigate(`/editor?trackId=${trackId}`)}>
-                편집
-              </Button>
+              {user && track?.user_id === user.id && (
+                <Button variant="secondary" size="sm" onClick={() => navigate(`/editor?trackId=${trackId}`)}>
+                  편집
+                </Button>
+              )}
             </div>
           </div>
 

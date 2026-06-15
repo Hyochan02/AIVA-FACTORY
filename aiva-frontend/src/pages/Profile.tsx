@@ -227,8 +227,11 @@ const Profile: React.FC = () => {
           <div className="pt-4 border-t border-(--border-color)">
             <h3 className="text-sm font-bold text-white mb-3">2단계 인증 (2FA)</h3>
             <div className="flex items-center justify-between">
-              <div className="text-sm text-slate-400">Google Authenticator 사용</div>
-              <Button variant="secondary" size="sm">설정하기</Button>
+              <div>
+                <div className="text-sm text-slate-400">Google Authenticator 사용</div>
+                <div className="text-xs text-amber-400 mt-0.5">추후 지원 예정 기능입니다.</div>
+              </div>
+              <Button variant="secondary" size="sm" disabled>설정하기</Button>
             </div>
           </div>
         </div>

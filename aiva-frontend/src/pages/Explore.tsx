@@ -256,9 +256,12 @@ const Explore: React.FC = () => {
 
       {!isSearching && (
         <div className="bg-[#0d1340] border border-(--border-color) rounded-2xl p-6">
-          <h2 className="flex items-center gap-2 font-bold text-white mb-5">
-            <Flame size={18} className="text-orange-400" /> 트렌딩
-          </h2>
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="flex items-center gap-2 font-bold text-white">
+              <Flame size={18} className="text-orange-400" /> 트렌딩
+            </h2>
+            <span className="text-xs text-slate-500">최근 7일 · 재생 ×1 + 좋아요 ×3 점수 순</span>
+          </div>
           {trendingLoading ? (
             Array(5).fill(0).map((_, i) => <TrackSkeleton key={i} />)
           ) : trending.length === 0 ? (

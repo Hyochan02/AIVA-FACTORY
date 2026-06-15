@@ -113,7 +113,7 @@ const Editor: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>("mixer");
 
   const { data: historyData, isLoading: historyLoading } = useGetJobHistory(
-    activeTab as JobHistory["type"],
+    activeTab !== "mixer" ? (activeTab as JobHistory["type"]) : undefined,
   );
   const jobHistory = historyData?.jobs ?? [];
 
@@ -365,13 +365,15 @@ const Editor: React.FC = () => {
           )}
         </div>
 
-        <div className="space-y-3">
-          <JobHistoryPanel
-            title={activeTab === "mixer" ? "최근 작업" : tabInfo.label}
-            jobs={jobHistory}
-            isLoading={historyLoading}
-          />
-        </div>
+        {activeTab !== "mixer" && (
+          <div className="space-y-3">
+            <JobHistoryPanel
+              title={tabInfo.label}
+              jobs={jobHistory}
+              isLoading={historyLoading}
+            />
+          </div>
+        )}
       </div>
 
       {((activeTab === "wav" && wavUrl) || (activeTab === "video" && videoUrl)) && (

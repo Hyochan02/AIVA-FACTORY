@@ -6,5 +6,6 @@ export const useGetJobHistory = (type?: JobHistory['type']) => {
   return useQuery<{ jobs: JobHistory[] }>({
     queryKey: ['jobHistory', type],
     queryFn: async () => (await getJobHistory(type)).data,
+    enabled: type !== undefined,
   })
 }

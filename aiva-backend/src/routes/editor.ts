@@ -528,4 +528,22 @@ router.get('/jobs', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
+// ── DELETE /api/editor/jobs/:jobId ─ 히스토리 항목 삭제 ──
+router.delete('/jobs/:jobId', async (req, res, next) => {
+  try {
+    const conn = await pool.getConnection()
+    try {
+      const [result]: any = await conn.query(
+        'DELETE FROM suno_jobs WHERE id = ? AND user_id = ?',
+        [req.params.jobId, req.user!.id]
+      )
+      if (result.affectedRows === 0) {
+        res.status(404).json({ success: false, error: '항목을 찾을 수 없습니다.' })
+        return
+      }
+    } finally { conn.release() }
+    res.json({ success: true })
+  } catch (err) { next(err) }
+})
+
 export default router

@@ -70,7 +70,7 @@ router.post('/callback/:type', async (req, res) => {
         resultUrl = data.response?.audio_url ?? null
         if (!resultUrl) status = 'error'
       } else if (type === 'video') {
-        resultUrl = data.response?.video_url ?? null
+        resultUrl = data.video_url ?? data.response?.video_url ?? null
         if (!resultUrl) status = 'error'
       }
 
@@ -398,6 +398,12 @@ router.get('/video/:jobId', async (req, res, next) => {
 
     if (!process.env.SUNO_API_KEY) {
       res.json({ success: true, data: { status: 'done', videoUrl: 'https://example.com/mock.mp4' } })
+      return
+    }
+
+    // 콜백으로 이미 완료된 경우 DB에서 바로 반환
+    if (job.status === 'done' && job.result_url) {
+      res.json({ success: true, data: { status: 'done', videoUrl: job.result_url } })
       return
     }
 

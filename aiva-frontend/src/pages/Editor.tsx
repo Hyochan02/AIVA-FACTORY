@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   SlidersHorizontal,
-  RefreshCw,
   HardDrive,
   Film,
   ChevronDown,
@@ -11,22 +10,19 @@ import { useSearchParams, useBlocker } from "react-router-dom";
 import { Button } from "../components/common/Button";
 import { useAuthStore } from "../stores/authStore";
 import { getTracks } from "../api/tracks/getTracks";
-import { pollSeparate } from "../api/editor/pollSeparate";
 import { pollWav } from "../api/editor/pollWav";
 import { pollVideo } from "../api/editor/pollVideo";
-import { useSeparateVocals } from "../hooks/mutations/useSeparateVocals";
 import { useConvertWav } from "../hooks/mutations/useConvertWav";
 import { useCreateVideo } from "../hooks/mutations/useCreateVideo";
 import { useGetJobHistory } from "../hooks/queries/useGetJobHistory";
 import { useGetStems } from "../hooks/queries/useGetStems";
 import { useQueryClient } from "@tanstack/react-query";
 import { trackTitle } from "../utils/format";
-import type { SeparateResult, JobHistory } from "../types/editor";
+import type { JobHistory } from "../types/editor";
 import { JobHistoryPanel } from "../components/editor/JobHistoryPanel";
 import { StemMixer } from "../components/editor/StemMixer";
-import { STEM_LABELS } from "../constants/stemLabels";
 
-type Tab = "mixer" | "separate" | "wav" | "video";
+type Tab = "mixer" | "wav" | "video";
 
 interface TrackItem {
   id: string;
@@ -89,7 +85,7 @@ const TAB_INFO: {
     id: "mixer",
     label: "믹서 / 편집",
     icon: React.createElement(SlidersHorizontal, { size: 15 }),
-    desc: "트랙별 볼륨·뮤트·솔로를 조절해 즉시 편집·분리하고, 마음에 드는 믹스를 저장합니다",
+    desc: "트랙별 볼륨·뮤트·솔로를 조절해 즉시 편집하고, 마음에 드는 믹스를 저장합니다",
     credit: 0,
   },
   {
@@ -106,13 +102,6 @@ const TAB_INFO: {
     desc: "MP4 비디오를 자동 생성합니다",
     credit: 5,
   },
-  {
-    id: "separate",
-    label: "고급 분리 (다시 생성)",
-    icon: React.createElement(RefreshCw, { size: 15 }),
-    desc: "위 믹서로 부족할 때, 더 많은 악기 조합으로 스템 파일을 새로 생성합니다",
-    credit: 10,
-  },
 ];
 
 const Editor: React.FC = () => {
@@ -121,12 +110,8 @@ const Editor: React.FC = () => {
   const user = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
 
-  // 기본 탭: 악곡을 선택하면 가장 먼저 "믹서/편집" 탭을 보여준다.
-  // 보컬 음소거 = 분리 등, 믹서 조절 자체가 1차 편집 수단이기 때문이다.
-  // 나머지(WAV 변환 / 뮤직비디오 / 고급 분리)는 부가 기능 탭으로 배치한다.
   const [activeTab, setActiveTab] = useState<Tab>("mixer");
 
-  // "믹서" 탭은 작업 히스토리가 없는 탭이므로 전체 타입(undefined)을 조회한다.
   const { data: historyData, isLoading: historyLoading } = useGetJobHistory(
     activeTab === "mixer" ? undefined : (activeTab as JobHistory["type"]),
   );
@@ -151,28 +136,15 @@ const Editor: React.FC = () => {
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [loading]);
+
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
-  // 선택한 트랙의 악기별 스템(자동 분리 결과) — 믹서 UI에 전달
   const { data: stems } = useGetStems(selectedTrackId);
 
-  // ── 뮤테이션 훅 ──
-  const { mutate: separateMutate } = useSeparateVocals();
   const { mutate: wavMutate } = useConvertWav();
   const { mutate: videoMutate } = useCreateVideo();
 
-  // ── separate ──
-  const [separateType, setSeparateType] = useState<"separate_vocal" | "split_stem">("separate_vocal");
-  const [separateResult, setSeparateResult] = useState<SeparateResult | null>(null);
-  const separatePoller = usePoller<SeparateResult>((id) => pollSeparate(id), (d) => {
-    setSeparateResult(d);
-    setLoading(false);
-    setSuccessMsg("보컬/악기가 분리되었습니다!");
-    refreshHistory();
-  });
-
-  // ── wav ───────
   const [wavUrl, setWavUrl] = useState("");
   const wavPoller = usePoller<{ wavUrl: string }>((id) => pollWav(id), (d) => {
     setWavUrl(d.wavUrl ?? "");
@@ -181,7 +153,6 @@ const Editor: React.FC = () => {
     refreshHistory();
   });
 
-  // ── video ─────
   const [videoUrl, setVideoUrl] = useState("");
   const videoPoller = usePoller<{ videoUrl: string }>((id) => pollVideo(id), (d) => {
     setVideoUrl(d.videoUrl ?? "");
@@ -216,17 +187,7 @@ const Editor: React.FC = () => {
       setLoading(false);
     };
 
-    if (activeTab === "separate") {
-      setSeparateResult(null);
-      separateMutate(
-        { trackId: selectedTrackId, type: separateType },
-        {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          onSuccess: (data: any) => separatePoller.start(data.jobId),
-          onError,
-        },
-      );
-    } else if (activeTab === "wav") {
+    if (activeTab === "wav") {
       wavMutate(
         { trackId: selectedTrackId },
         {
@@ -248,12 +209,10 @@ const Editor: React.FC = () => {
   };
 
   const tabInfo = TAB_INFO.find((t) => t.id === activeTab)!;
-  const currentCredit =
-    activeTab === "separate" ? (separateType === "split_stem" ? 50 : 10) : tabInfo.credit;
+  const currentCredit = tabInfo.credit;
   const userCredits = user?.credits ?? 0;
   const hasEnoughCredits = activeTab === "mixer" || userCredits >= currentCredit;
   const isPolling =
-    (activeTab === "separate" && separatePoller.polling) ||
     (activeTab === "wav" && wavPoller.polling) ||
     (activeTab === "video" && videoPoller.polling);
 
@@ -265,7 +224,7 @@ const Editor: React.FC = () => {
           <div>
             <h3 className="font-bold text-white text-lg mb-2">작업 중에 나가시겠어요?</h3>
             <p className="text-sm text-slate-400 leading-relaxed">
-              스템 분리가 진행 중입니다. 지금 페이지를 떠나면 작업이 중단될 수 있습니다.
+              작업이 진행 중입니다. 지금 페이지를 떠나면 작업이 중단될 수 있습니다.
             </p>
           </div>
           <div className="flex gap-3">
@@ -297,9 +256,7 @@ const Editor: React.FC = () => {
             <span>{t.icon}</span>
             <span>{t.label}</span>
             {t.id !== "mixer" && (
-              <span className="text-xs opacity-60">
-                ({t.id === "separate" ? "10~50" : t.credit}크)
-              </span>
+              <span className="text-xs opacity-60">({t.credit}크)</span>
             )}
           </button>
         ))}
@@ -342,12 +299,6 @@ const Editor: React.FC = () => {
             )}
           </div>
 
-          {/* 악곡을 선택하면 가장 먼저 보여주는 화면.
-              생성 완료 시 백엔드가 자동으로 split_stem을 요청해두므로,
-              대부분의 경우 트랙 선택 즉시 믹서가 바로 표시된다.
-              → 보컬을 음소거하면 반주만 남는 등, "악기 분리"는 별도 기능이 아니라
-                이 믹서의 볼륨/뮤트/솔로 조절 자체로 충족된다. 조절한 값은
-                "믹스 저장"으로 서버에 보관해 다음에 다시 불러올 수 있다. */}
           {activeTab === "mixer" && (
             stems && stems.length > 0 ? (
               <StemMixer stems={stems} trackId={selectedTrackId} />
@@ -361,33 +312,6 @@ const Editor: React.FC = () => {
                 먼저 위에서 편집할 악곡을 선택해주세요.
               </div>
             )
-          )}
-
-          {activeTab === "separate" && (
-            <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-5 space-y-3">
-              <label className="block text-sm font-bold text-white mb-2">분리 모드</label>
-              {(
-                [
-                  { value: "separate_vocal", label: "보컬 + 반주 분리", credit: "10크레딧", desc: "2개 파일 반환: 보컬, 반주" },
-                  { value: "split_stem", label: "전체 악기 분리", credit: "50크레딧", desc: "최대 12개 파일: 보컬, 드럼, 베이스, 기타, 키보드 등" },
-                ] as const
-              ).map((opt) => (
-                <button
-                  key={opt.value} type="button" onClick={() => setSeparateType(opt.value)}
-                  className={`w-full flex items-center gap-3 p-3 rounded-md border text-left transition-all ${separateType === opt.value ? "border-indigo-500/60 bg-indigo-600/10" : "border-primary-soft hover:border-indigo-700/40"}`}
-                >
-                  <div className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${separateType === opt.value ? "border-indigo-400" : "border-slate-600"}`}>
-                    {separateType === opt.value && <div className="w-2 h-2 rounded-full bg-indigo-400" />}
-                  </div>
-                  <div>
-                    <div className="text-sm font-bold text-white">
-                      {opt.label} <span className="font-normal text-slate-400">({opt.credit})</span>
-                    </div>
-                    <div className="text-xs text-slate-400 mt-0.5">{opt.desc}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
           )}
 
           {activeTab === "wav" && (
@@ -411,7 +335,6 @@ const Editor: React.FC = () => {
             <div className="bg-green-900/30 border border-green-700/40 rounded-xl p-4 text-sm text-green-300">{successMsg}</div>
           )}
 
-          {/* 믹서 탭은 자체 "믹스 저장/다운로드" 버튼을 쓰므로 별도 액션 버튼이 필요 없다 */}
           {activeTab !== "mixer" && (
             <>
               {!hasEnoughCredits && (
@@ -451,9 +374,7 @@ const Editor: React.FC = () => {
         </div>
       </div>
 
-      {((activeTab === "separate" && separateResult?.status === "done") ||
-        (activeTab === "wav" && wavUrl) ||
-        (activeTab === "video" && videoUrl)) && (
+      {((activeTab === "wav" && wavUrl) || (activeTab === "video" && videoUrl)) && (
         <div className="bg-[#0d1340] border border-primary-soft rounded-2xl p-6">
           <h3 className="font-bold text-white mb-5 flex items-center gap-2">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-emerald-400">
@@ -461,24 +382,6 @@ const Editor: React.FC = () => {
             </svg>
             결과
           </h3>
-
-          {activeTab === "separate" && separateResult?.status === "done" && (
-            <div className="space-y-3">
-              <div className="grid sm:grid-cols-2 gap-4">
-                {Object.entries(separateResult.stems ?? {}).map(([stemType, url]) => (
-                  <div key={stemType} className="bg-navy-800/30 rounded-xl p-3 space-y-2">
-                    <p className="text-xs font-semibold text-slate-300">{STEM_LABELS[stemType] ?? stemType}</p>
-                    <audio controls src={url} className="w-full" />
-                  </div>
-                ))}
-              </div>
-              {separateType === "split_stem" && (
-                <p className="text-xs text-slate-500">
-                  분리된 악기들은 라이브러리의 트랙 상세 → 믹서에서 함께 재생하고 볼륨을 조절할 수 있습니다.
-                </p>
-              )}
-            </div>
-          )}
 
           {activeTab === "wav" && wavUrl && (
             <div className="space-y-3">

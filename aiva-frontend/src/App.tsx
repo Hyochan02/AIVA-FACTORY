@@ -1,5 +1,5 @@
 import React, { useEffect, type ReactNode } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useAuthStore } from './stores/authStore'
 import { AppLayout } from './components/layout/AppLayout'
@@ -38,10 +38,15 @@ const PageLoader = () => (
   </div>
 )
 
-const AuthInit: React.FC<{ children: ReactNode }> = ({ children }) => {
+// createBrowserRouter(data router)에서 인증 초기화 — useBlocker 사용을 위해 필요
+const AuthInitWrapper: React.FC = () => {
   const init = useAuthStore((s) => s.init)
   useEffect(() => { init() }, [init])
-  return <>{children}</>
+  return (
+    <React.Suspense fallback={<PageLoader />}>
+      <Outlet />
+    </React.Suspense>
+  )
 }
 
 const PrivateRoute: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -52,45 +57,36 @@ const PrivateRoute: React.FC<{ children: ReactNode }> = ({ children }) => {
   return <>{children}</>
 }
 
-function AppRoutes() {
-  return (
-    <React.Suspense fallback={<PageLoader />}>
-      <Routes>
-        {/* 퍼블릭 라우트 */}
-        <Route path="/"                element={<Landing />} />
-        <Route path="/login"           element={<Login />} />
-        <Route path="/signup"          element={<Signup />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password"  element={<ResetPassword />} />
-        <Route path="/pricing"         element={<AppLayout title="요금제"><Pricing /></AppLayout>} />
-        <Route path="/pitch"           element={<Pitch />} />
-
-        {/* 프라이빗 라우트 */}
-        <Route path="/dashboard" element={<PrivateRoute><AppLayout title="대시보드"><Dashboard /></AppLayout></PrivateRoute>} />
-        <Route path="/create"    element={<PrivateRoute><AppLayout title="음악 생성"><Create /></AppLayout></PrivateRoute>} />
-        <Route path="/generating" element={<PrivateRoute><AppLayout title="생성 중"><Generating /></AppLayout></PrivateRoute>} />
-        <Route path="/editor/:trackId" element={<PrivateRoute><AppLayout title="에디터"><Editor /></AppLayout></PrivateRoute>} />
-        <Route path="/editor"    element={<PrivateRoute><AppLayout title="에디터"><Editor /></AppLayout></PrivateRoute>} />
-        <Route path="/library"   element={<PrivateRoute><AppLayout title="내 라이브러리"><Library /></AppLayout></PrivateRoute>} />
-        <Route path="/player/:id" element={<PrivateRoute><AppLayout title="플레이어"><Player /></AppLayout></PrivateRoute>} />
-        <Route path="/player"    element={<PrivateRoute><AppLayout title="플레이어"><Player /></AppLayout></PrivateRoute>} />
-        <Route path="/explore"   element={<PrivateRoute><AppLayout title="탐색"><Explore /></AppLayout></PrivateRoute>} />
-        <Route path="/profile"   element={<PrivateRoute><AppLayout title="프로필 & 설정"><Profile /></AppLayout></PrivateRoute>} />
-
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </React.Suspense>
-  )
-}
+const router = createBrowserRouter([
+  {
+    element: <AuthInitWrapper />,
+    children: [
+      { path: '/',                element: <Landing /> },
+      { path: '/login',           element: <Login /> },
+      { path: '/signup',          element: <Signup /> },
+      { path: '/forgot-password', element: <ForgotPassword /> },
+      { path: '/reset-password',  element: <ResetPassword /> },
+      { path: '/pricing',         element: <AppLayout title="요금제"><Pricing /></AppLayout> },
+      { path: '/pitch',           element: <Pitch /> },
+      { path: '/dashboard',       element: <PrivateRoute><AppLayout title="대시보드"><Dashboard /></AppLayout></PrivateRoute> },
+      { path: '/create',          element: <PrivateRoute><AppLayout title="음악 생성"><Create /></AppLayout></PrivateRoute> },
+      { path: '/generating',      element: <PrivateRoute><AppLayout title="생성 중"><Generating /></AppLayout></PrivateRoute> },
+      { path: '/editor/:trackId', element: <PrivateRoute><AppLayout title="에디터"><Editor /></AppLayout></PrivateRoute> },
+      { path: '/editor',          element: <PrivateRoute><AppLayout title="에디터"><Editor /></AppLayout></PrivateRoute> },
+      { path: '/library',         element: <PrivateRoute><AppLayout title="내 라이브러리"><Library /></AppLayout></PrivateRoute> },
+      { path: '/player/:id',      element: <PrivateRoute><AppLayout title="플레이어"><Player /></AppLayout></PrivateRoute> },
+      { path: '/player',          element: <PrivateRoute><AppLayout title="플레이어"><Player /></AppLayout></PrivateRoute> },
+      { path: '/explore',         element: <PrivateRoute><AppLayout title="탐색"><Explore /></AppLayout></PrivateRoute> },
+      { path: '/profile',         element: <PrivateRoute><AppLayout title="프로필 & 설정"><Profile /></AppLayout></PrivateRoute> },
+      { path: '*',                element: <Navigate to="/" replace /> },
+    ],
+  },
+])
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AuthInit>
-          <AppRoutes />
-        </AuthInit>
-      </BrowserRouter>
+      <RouterProvider router={router} />
     </QueryClientProvider>
   )
 }

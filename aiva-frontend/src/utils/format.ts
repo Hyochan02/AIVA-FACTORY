@@ -37,6 +37,10 @@ export const formatRelative = (iso: string): string => {
   return formatDate(iso)
 }
 
+/** 악곡 표시 제목: version_num 있으면 "제목 v1" 형태로 반환 */
+export const trackTitle = (title: string, version_num?: number | null): string =>
+  version_num ? `${title} (v${version_num})` : title
+
 /** 트랙 ID → 그라디언트 클래스 (같은 ID는 항상 같은 색) */
 const GRAD_COLORS = [
   'from-indigo-700 to-violet-700',

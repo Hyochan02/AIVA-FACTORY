@@ -7,7 +7,7 @@ import { TrackCard } from '../components/tracks/TrackCard'
 import { Waveform } from '../components/common/Waveform'
 import { useGetTracks } from '../hooks/queries/useGetTracks'
 import { usePatchTrack } from '../hooks/mutations/usePatchTrack'
-import { formatDuration, gradColor } from '../utils/format'
+import { formatDuration, gradColor, trackTitle } from '../utils/format'
 import type { Track } from '../types/track'
 
 const FILTERS = ['전체', 'Lo-Fi', 'City Pop', 'Ambient', 'Synthwave', 'K-Pop', 'EDM', 'Jazz', 'Acoustic', 'Hip-Hop', 'Classical', 'R&B', 'Drum & Bass']
@@ -146,13 +146,8 @@ const Library: React.FC = () => {
                     }
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-white truncate">{t.title}</div>
+                    <div className="text-sm font-semibold text-white truncate">{trackTitle(t.title, t.version_num)}</div>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      {t.version_num && (
-                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 shrink-0">
-                          V{t.version_num}
-                        </span>
-                      )}
                       {t.genre && <Badge variant="info">{t.genre}</Badge>}
                       <button
                         onClick={e => handleVisibilityToggle(e, t)}

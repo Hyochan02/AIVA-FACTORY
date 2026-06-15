@@ -20,6 +20,7 @@ import { useCreateVideo } from "../hooks/mutations/useCreateVideo";
 import { useGetJobHistory } from "../hooks/queries/useGetJobHistory";
 import { useGetStems } from "../hooks/queries/useGetStems";
 import { useQueryClient } from "@tanstack/react-query";
+import { trackTitle } from "../utils/format";
 import type { SeparateResult, JobHistory } from "../types/editor";
 import { JobHistoryPanel } from "../components/editor/JobHistoryPanel";
 import { StemMixer } from "../components/editor/StemMixer";
@@ -32,6 +33,7 @@ interface TrackItem {
   title: string;
   genre?: string;
   status: string;
+  version_num?: number;
 }
 
 // ── 폴링 훅 ─────────────────────────────────────────────────
@@ -331,7 +333,7 @@ const Editor: React.FC = () => {
                 >
                   {tracks.map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.title} {t.genre ? `(${t.genre})` : ""}
+                      {trackTitle(t.title, t.version_num)}{t.genre ? ` (${t.genre})` : ""}
                     </option>
                   ))}
                 </select>

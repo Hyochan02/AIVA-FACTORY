@@ -11,6 +11,7 @@ import {
   formatPlays,
   formatDate,
   gradColor,
+  trackTitle,
 } from "../utils/format";
 import type { Track } from "../types/track";
 
@@ -214,7 +215,7 @@ const Dashboard: React.FC = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-semibold text-white truncate">
-                      {t.title}
+                      {trackTitle(t.title, t.version_num)}
                     </div>
                     <div className="text-xs text-slate-400">{t.genre}</div>
                   </div>

@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 import { Button } from '../components/common/Button'
 import { Badge } from '../components/common/Badge'
+import { trackTitle } from '../utils/format'
 import { getTrack } from '../api/tracks/getTrack'
 import { postLike } from '../api/tracks/postLike'
 import { deleteLike } from '../api/tracks/deleteLike'
@@ -210,14 +211,9 @@ const Player: React.FC = () => {
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <h1 className="text-xl font-black text-white truncate">
-                {track?.title as string || '제목 없음'}
+                {trackTitle(track?.title as string || '제목 없음', track?.version_num as number)}
               </h1>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
-                {(track?.version_num as number) && (
-                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 border border-indigo-500/30 text-indigo-300">
-                    V{track?.version_num as number}
-                  </span>
-                )}
                 {(track?.genre as string) && <Badge variant="info">{track?.genre as string}</Badge>}
                 {(track?.mood as string)  && <Badge variant="info">{track?.mood as string}</Badge>}
                 {(track?.bpm as number)   && <span className="text-xs text-slate-400">{track?.bpm as number} BPM</span>}

@@ -1,7 +1,7 @@
 import React from 'react'
 import { Globe, Lock, Music2, Play } from 'lucide-react'
 import { Badge } from '../common/Badge'
-import { formatDuration, gradColor } from '../../utils/format'
+import { formatDuration, gradColor, trackTitle } from '../../utils/format'
 import type { Track } from '../../types/track'
 
 type TrackWithPublic = Track & { is_public?: number; cover_url?: string }
@@ -46,13 +46,8 @@ export const TrackCard: React.FC<TrackCardProps> = ({
       </div>
 
       <div className="p-4">
-        <div className="font-semibold text-white text-sm truncate mb-2">{t.title}</div>
+        <div className="font-semibold text-white text-sm truncate mb-2">{trackTitle(t.title, t.version_num)}</div>
         <div className="flex items-center gap-2">
-          {t.version_num && (
-            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 shrink-0">
-              V{t.version_num}
-            </span>
-          )}
           <Badge variant="info">{t.genre}</Badge>
           <button
             onClick={(e) => onVisibilityToggle(e, track)}

@@ -10,7 +10,7 @@ import { usePostLike } from "../hooks/mutations/usePostLike";
 import { useDeleteLike } from "../hooks/mutations/useDeleteLike";
 import { usePostFollow } from "../hooks/mutations/usePostFollow";
 import { useDeleteFollow } from "../hooks/mutations/useDeleteFollow";
-import { formatDuration, gradColor } from "../utils/format";
+import { formatDuration, gradColor, trackTitle } from "../utils/format";
 import { useDebounce } from "../hooks/useDebounce";
 import { TrackRow } from "../components/tracks/TrackRow";
 import { CreatorCard } from "../components/explore/CreatorCard";
@@ -320,7 +320,7 @@ const Explore: React.FC = () => {
                         </div>
                       </div>
                       <div className="p-4">
-                        <div className="font-semibold text-white text-sm truncate mb-2">{t.title}</div>
+                        <div className="font-semibold text-white text-sm truncate mb-2">{trackTitle(t.title, t.version_num)}</div>
                         <div className="flex items-center gap-2">
                           <Badge variant="info">{t.genre}</Badge>
                           <span className="ml-auto text-xs text-slate-400 shrink-0">{formatDuration(t.duration)}</span>

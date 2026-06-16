@@ -63,7 +63,7 @@ const Generating: React.FC = () => {
             </Button>
             <button
               onClick={() => blocker.proceed()}
-              className="flex-1 py-2 rounded-lg bg-rose-600/20 border border-rose-500/40 text-rose-400 text-sm font-semibold hover:bg-rose-600/30 transition-all"
+              className="w-full py-2 rounded-lg bg-rose-600/20 border border-rose-500/40 text-rose-400 text-sm font-semibold hover:bg-rose-600/30 transition-all"
             >
               지금 나가기
             </button>

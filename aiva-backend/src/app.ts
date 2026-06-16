@@ -77,7 +77,6 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   customCss: `
     .swagger-ui .topbar { background: #080c2a; }
     .swagger-ui .topbar-wrapper .link span { display: none; }
-    .swagger-ui .topbar-wrapper::after { content: 'AIVA FACTORY API'; color: #818cf8; font-weight: 900; font-size: 1.1rem; }
   `,
   swaggerOptions: { persistAuthorization: true },  // 페이지 새로고침 후에도 토큰 유지
 }))

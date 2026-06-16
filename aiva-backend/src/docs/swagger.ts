@@ -12,9 +12,7 @@ const swaggerSpec = {
       'AI 음악 생성 플랫폼 **AIVA FACTORY**의 REST API 문서입니다.\n\n' +
       '## 인증\n' +
       '`POST /api/auth/login` 또는 `POST /api/auth/register` 응답의 `data.token` 값을\n' +
-      '**Authorize** 버튼에 입력하면 인증이 필요한 모든 엔드포인트를 테스트할 수 있습니다.\n\n' +
-      '## 크레딧\n' +
-      '음악 1곡 생성 시 크레딧 10개 차감. 가입 시 100개 무료 제공.',
+      '**Authorize** 버튼에 입력하면 인증이 필요한 모든 엔드포인트를 테스트할 수 있습니다.',
     contact: {
       name: 'Hyochan',
       url: 'https://github.com/Hyochan02/AIVA-FACTORY',
@@ -34,7 +32,7 @@ const swaggerSpec = {
     { name: 'Subscriptions', description: '요금제 조회 / 구독 관리' },
     { name: 'Notifications', description: '알림 수신 설정' },
     { name: 'Stats',         description: '대시보드 통계 요약' },
-    { name: 'Editor',        description: 'Suno AI 음악 편집 (연장 / 가사 / 보컬 분리 / WAV / 비디오)' },
+    { name: 'Editor',        description: 'Suno AI 음악 편집 (보컬 분리 / 스템 믹서 / WAV 변환 / 뮤직비디오)' },
   ],
 
   // ── 공통 컴포넌트 ──────────────────────────────────────────────
@@ -301,7 +299,7 @@ const swaggerSpec = {
       post: {
         tags: ['Auth'],
         summary: '소셜 로그인 (구현 예정)',
-        description: 'Google / Kakao 소셜 로그인. 현재 stub 상태.',
+        description: 'Google / Facebook 소셜 로그인. 현재 501 stub 상태.',
         security: [],
         requestBody: {
           required: true,
@@ -309,10 +307,10 @@ const swaggerSpec = {
             'application/json': {
               schema: {
                 type: 'object',
-                required: ['provider', 'token'],
+                required: ['provider', 'accessToken'],
                 properties: {
-                  provider: { type: 'string', enum: ['google', 'kakao'], example: 'google' },
-                  token:    { type: 'string', example: 'oauth_access_token' },
+                  provider:    { type: 'string', enum: ['google', 'facebook'], example: 'google' },
+                  accessToken: { type: 'string', example: 'oauth_access_token' },
                 },
               },
             },
@@ -320,6 +318,7 @@ const swaggerSpec = {
         },
         responses: {
           200: { description: '소셜 로그인 성공', content: { 'application/json': { schema: { '$ref': '#/components/schemas/SuccessResponse' } } } },
+          501: { description: '미구현 (2차 개발 예정)', content: { 'application/json': { schema: { '$ref': '#/components/schemas/ErrorResponse' } } } },
         },
       },
     },
@@ -464,8 +463,8 @@ const swaggerSpec = {
         summary: '음악 생성 요청',
         description:
           'Suno AI에 음악 생성을 요청합니다. **비동기 방식** — 즉시 `taskId`를 반환하고 실제 생성은 백그라운드에서 진행됩니다.\n\n' +
-          '생성 완료는 `GET /api/generate/{taskId}/status` 를 2초마다 폴링하여 확인하세요.\n\n' +
-          '크레딧 **10개** 차감.',
+          '생성 완료는 `GET /api/generate/{trackId}/status` 를 3초마다 폴링하여 확인하세요.\n\n' +
+          '크레딧 **4개** 차감.',
         requestBody: {
           required: true,
           content: {
@@ -474,12 +473,15 @@ const swaggerSpec = {
                 type: 'object',
                 required: ['prompt'],
                 properties: {
-                  prompt:   { type: 'string', example: '비 오는 도쿄 밤, 시티팝 분위기의 잔잔한 LoFi 트랙' },
-                  genre:    { type: 'string', example: 'City Pop' },
-                  mood:     { type: 'string', example: 'Chill' },
-                  bpm:      { type: 'integer', example: 120 },
-                  duration: { type: 'integer', example: 180, description: '생성 희망 길이 (초)' },
-                  isPublic: { type: 'boolean', example: true, description: '생성 즉시 공개 여부 (기본값: true)' },
+                  prompt:       { type: 'string', example: '비 오는 도쿄 밤, 시티팝 분위기의 잔잔한 LoFi 트랙' },
+                  genre:        { type: 'string', example: 'City Pop' },
+                  mood:         { type: 'string', example: 'Chill' },
+                  instruments:  { type: 'array', items: { type: 'string' }, example: ['piano', 'guitar'], description: '사용 악기 목록 (선택)' },
+                  bpm:          { type: 'integer', minimum: 60, maximum: 200, example: 120 },
+                  duration:     { type: 'integer', minimum: 30, maximum: 240, example: 120, description: '생성 희망 길이 (초, 기본값: 120)' },
+                  instrumental: { type: 'boolean', example: false, description: '보컬 없는 반주 전용 (기본값: false)' },
+                  title:        { type: 'string', maxLength: 80, example: '도쿄 야경' },
+                  isPublic:     { type: 'boolean', example: true, description: '생성 즉시 공개 여부 (기본값: true)' },
                 },
               },
             },
@@ -498,9 +500,11 @@ const swaggerSpec = {
                         data: {
                           type: 'object',
                           properties: {
-                            taskId:  { type: 'string', example: 'task_abc123' },
-                            trackId: { type: 'string', format: 'uuid' },
-                            message: { type: 'string', example: '음악 생성을 시작했습니다. 상태를 폴링해주세요.' },
+                            taskId:           { type: 'string', example: 'task_abc123', description: 'Suno 작업 ID' },
+                            trackId:          { type: 'string', format: 'uuid', description: '생성된 트랙 ID (폴링 경로에 사용)' },
+                            estimatedSeconds: { type: 'integer', example: 30, description: '예상 완료까지 대기 시간(초)' },
+                            creditsUsed:      { type: 'integer', example: 4, description: '차감된 크레딧 수' },
+                            creditsRemaining: { type: 'integer', example: 96, description: '차감 후 잔여 크레딧' },
                           },
                         },
                       },
@@ -511,6 +515,7 @@ const swaggerSpec = {
             },
           },
           402: { description: '크레딧 부족 (code: INSUFFICIENT_CREDITS)', content: { 'application/json': { schema: { '$ref': '#/components/schemas/ErrorResponse' } } } },
+          503: { description: 'Suno AI 응답 오류 (code: SUNO_NO_TASK_ID)', content: { 'application/json': { schema: { '$ref': '#/components/schemas/ErrorResponse' } } } },
           401: { '$ref': '#/components/responses/Unauthorized' },
         },
       },
@@ -520,7 +525,10 @@ const swaggerSpec = {
       get: {
         tags: ['Generate'],
         summary: '생성 진행 상태 폴링',
-        description: '`status`가 `done` 또는 `error`가 될 때까지 **3초 간격**으로 호출하세요.\n\n완료 시 `data.versions` 배열에 버전 1·2가 포함됩니다.',
+        description:
+          '`status`가 `done` 또는 `error`가 될 때까지 **3초 간격**으로 호출하세요.\n\n' +
+          '완료 시 `data.versions` 배열에 버전 1·2가 각각 독립된 트랙으로 포함됩니다.\n\n' +
+          'Suno 상태 흐름: `PENDING` → `TEXT_SUCCESS` → `FIRST_SUCCESS` → `SUCCESS`',
         parameters: [
           { name: 'trackId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'POST /api/generate 응답의 trackId' },
         ],
@@ -537,10 +545,27 @@ const swaggerSpec = {
                         data: {
                           type: 'object',
                           properties: {
-                            taskId:   { type: 'string' },
+                            trackId:  { type: 'string', format: 'uuid' },
                             status:   { type: 'string', enum: ['pending', 'generating', 'done', 'error'] },
                             progress: { type: 'integer', example: 65, description: '0~100 (%)' },
-                            track:    { '$ref': '#/components/schemas/Track', description: 'status=done 일 때만 포함' },
+                            step:     { type: 'string', example: '오디오 합성 중', description: '현재 단계 설명 문자열' },
+                            audioUrl: { type: 'string', nullable: true, description: 'status=done 일 때 버전1 오디오 URL' },
+                            versions: {
+                              type: 'array',
+                              description: 'status=done 일 때 버전별 트랙 목록 (버전1·2 각각 독립 트랙)',
+                              items: {
+                                type: 'object',
+                                properties: {
+                                  id:          { type: 'string', format: 'uuid' },
+                                  version_num: { type: 'integer', example: 1 },
+                                  title:       { type: 'string' },
+                                  audio_url:   { type: 'string' },
+                                  stream_url:  { type: 'string' },
+                                  cover_url:   { type: 'string' },
+                                  duration:    { type: 'integer' },
+                                },
+                              },
+                            },
                           },
                         },
                       },
@@ -560,7 +585,7 @@ const swaggerSpec = {
       delete: {
         tags: ['Generate'],
         summary: '생성 취소',
-        description: '진행 중인 생성을 취소하고 크레딧 10개를 환불합니다.',
+        description: '진행 중인 생성을 취소하고 크레딧 4개를 환불합니다.',
         parameters: [
           { name: 'trackId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
         ],
@@ -890,16 +915,51 @@ const swaggerSpec = {
       get: {
         tags: ['Explore'],
         summary: '트렌딩 트랙',
-        description: '최근 7일 기준 좋아요 + 재생수 가중치로 정렬된 공개 트랙 목록.',
+        description: '기간 내 `play_count` 기준 내림차순 정렬된 공개 트랙 목록. 로그인 시 `is_liked` 여부도 반환.',
         security: [],
         parameters: [
-          { name: 'limit', in: 'query', schema: { type: 'integer', default: 20 } },
-          { name: 'genre', in: 'query', schema: { type: 'string' } },
+          { name: 'period', in: 'query', schema: { type: 'string', enum: ['day', 'week', 'month'], default: 'week' }, description: '집계 기간 (기본값: week)' },
+          { name: 'page',   in: 'query', schema: { type: 'integer', default: 1 } },
+          { name: 'limit',  in: 'query', schema: { type: 'integer', default: 20 } },
+          { name: 'genre',  in: 'query', schema: { type: 'string' } },
         ],
         responses: {
           200: {
             description: '트렌딩 목록 조회 성공',
-            content: { 'application/json': { schema: { allOf: [{ '$ref': '#/components/schemas/SuccessResponse' }, { properties: { data: { type: 'object', properties: { items: { type: 'array', items: { '$ref': '#/components/schemas/Track' } } } } } }] } } },
+            content: {
+              'application/json': {
+                schema: {
+                  allOf: [
+                    { '$ref': '#/components/schemas/SuccessResponse' },
+                    {
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            items: {
+                              type: 'array',
+                              items: {
+                                allOf: [
+                                  { '$ref': '#/components/schemas/Track' },
+                                  {
+                                    properties: {
+                                      plays:        { type: 'integer', example: 1234, description: 'play_count 별칭' },
+                                      owner_name:   { type: 'string', example: '홍길동' },
+                                      owner_avatar: { type: 'string', nullable: true },
+                                      is_liked:     { type: 'integer', enum: [0, 1], description: '로그인 시 좋아요 여부 (비로그인: 0)' },
+                                    },
+                                  },
+                                ],
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
           },
         },
       },
@@ -929,15 +989,48 @@ const swaggerSpec = {
       get: {
         tags: ['Explore'],
         summary: '인기 크리에이터',
-        description: '트랙 수 + 총 좋아요 기준 상위 크리에이터 목록.',
+        description: '총 재생수 기준 상위 크리에이터 목록. 로그인 시 `is_following` 여부 포함.',
         security: [],
         parameters: [
-          { name: 'limit', in: 'query', schema: { type: 'integer', default: 10 } },
+          { name: 'page',  in: 'query', schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 20 } },
         ],
         responses: {
           200: {
             description: '크리에이터 목록 조회 성공',
-            content: { 'application/json': { schema: { '$ref': '#/components/schemas/SuccessResponse' } } },
+            content: {
+              'application/json': {
+                schema: {
+                  allOf: [
+                    { '$ref': '#/components/schemas/SuccessResponse' },
+                    {
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            items: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                properties: {
+                                  id:           { type: 'string', format: 'uuid' },
+                                  name:         { type: 'string', example: '홍길동' },
+                                  avatar_url:   { type: 'string', nullable: true },
+                                  track_count:  { type: 'integer', example: 42 },
+                                  total_plays:  { type: 'integer', example: 12000 },
+                                  followers:    { type: 'integer', example: 320 },
+                                  is_following: { type: 'integer', enum: [0, 1], description: '로그인 시 팔로우 여부 (비로그인: 0)' },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
           },
         },
       },
@@ -947,18 +1040,37 @@ const swaggerSpec = {
       get: {
         tags: ['Explore'],
         summary: '통합 검색',
-        description: '제목 또는 프롬프트 키워드로 공개 트랙 검색.',
+        description: '트랙 제목/장르 또는 유저 이름으로 검색. `type=all`이면 `tracks`와 `users` 모두 반환.',
         security: [],
         parameters: [
           { name: 'q',     in: 'query', required: true, schema: { type: 'string' }, example: '시티팝' },
-          { name: 'genre', in: 'query', schema: { type: 'string' } },
+          { name: 'type',  in: 'query', schema: { type: 'string', enum: ['all', 'tracks', 'users'], default: 'all' }, description: '검색 대상 타입 (기본값: all)' },
           { name: 'page',  in: 'query', schema: { type: 'integer', default: 1 } },
           { name: 'limit', in: 'query', schema: { type: 'integer', default: 20 } },
         ],
         responses: {
           200: {
             description: '검색 결과',
-            content: { 'application/json': { schema: { allOf: [{ '$ref': '#/components/schemas/SuccessResponse' }, { properties: { data: { type: 'object', properties: { items: { type: 'array', items: { '$ref': '#/components/schemas/Track' } }, pagination: { '$ref': '#/components/schemas/Pagination' } } } } }] } } },
+            content: {
+              'application/json': {
+                schema: {
+                  allOf: [
+                    { '$ref': '#/components/schemas/SuccessResponse' },
+                    {
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            tracks: { type: 'array', items: { '$ref': '#/components/schemas/Track' }, description: 'type=tracks 또는 type=all 일 때 포함' },
+                            users:  { type: 'array', items: { '$ref': '#/components/schemas/User' },  description: 'type=users  또는 type=all 일 때 포함' },
+                          },
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
           },
           400: { description: '검색어 누락', content: { 'application/json': { schema: { '$ref': '#/components/schemas/ErrorResponse' } } } },
         },
@@ -972,7 +1084,7 @@ const swaggerSpec = {
       get: {
         tags: ['Users'],
         summary: '유저 공개 프로필',
-        description: '유저 기본 정보 + 트랙 수 / 팔로워 수 / 총 좋아요 수 + 최근 공개 트랙 5개.',
+        description: '유저 기본 정보 + 트랙 수 / 팔로워 수 / 팔로잉 수 + 최근 공개 트랙 10개.',
         security: [],
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
         responses: {
@@ -988,9 +1100,20 @@ const swaggerSpec = {
                         data: {
                           type: 'object',
                           properties: {
-                            user:         { '$ref': '#/components/schemas/User' },
-                            stats:        { type: 'object', properties: { trackCount: { type: 'integer' }, followerCount: { type: 'integer' }, totalLikes: { type: 'integer' } } },
-                            recentTracks: { type: 'array', items: { '$ref': '#/components/schemas/Track' } },
+                            id:           { type: 'string', format: 'uuid' },
+                            name:         { type: 'string', example: '홍길동' },
+                            avatar_url:   { type: 'string', nullable: true },
+                            plan:         { type: 'string', enum: ['free', 'pro', 'enterprise'] },
+                            created_at:   { type: 'string', format: 'date-time' },
+                            stats:        {
+                              type: 'object',
+                              properties: {
+                                tracks:    { type: 'integer', example: 12, description: '공개 트랙 수' },
+                                followers: { type: 'integer', example: 320 },
+                                following: { type: 'integer', example: 45 },
+                              },
+                            },
+                            recentTracks: { type: 'array', items: { '$ref': '#/components/schemas/Track' }, description: '최근 공개 트랙 (최대 10개)' },
                           },
                         },
                       },
@@ -1065,7 +1188,7 @@ const swaggerSpec = {
       get: {
         tags: ['Credits'],
         summary: '크레딧 잔액 조회',
-        description: '현재 크레딧 잔액 + 현재 구독 플랜 정보.',
+        description: '현재 크레딧 잔액 + 현재 구독 플랜 정보 + 플랜별 월 지급량.',
         responses: {
           200: {
             description: '잔액 조회 성공',
@@ -1079,8 +1202,9 @@ const swaggerSpec = {
                         data: {
                           type: 'object',
                           properties: {
-                            credits: { type: 'integer', example: 90 },
-                            plan:    { type: 'string', enum: ['free', 'pro', 'enterprise'], example: 'free' },
+                            balance:      { type: 'integer', example: 90, description: '현재 크레딧 잔액 (필드명: balance)' },
+                            plan:         { type: 'string', enum: ['free', 'pro', 'enterprise'], example: 'free' },
+                            monthlyGrant: { type: 'integer', example: 100, description: '플랜별 월 기본 지급량 (enterprise: -1 = 무제한)' },
                           },
                         },
                       },
@@ -1102,6 +1226,7 @@ const swaggerSpec = {
         parameters: [
           { name: 'page',  in: 'query', schema: { type: 'integer', default: 1 } },
           { name: 'limit', in: 'query', schema: { type: 'integer', default: 20 } },
+          { name: 'type',  in: 'query', schema: { type: 'string', enum: ['grant', 'usage', 'purchase', 'refund'] }, description: '내역 유형 필터 (생략 시 전체)' },
         ],
         responses: {
           200: {
@@ -1184,24 +1309,25 @@ const swaggerSpec = {
       post: {
         tags: ['Subscriptions'],
         summary: '구독 신청',
-        description: '플랜 업그레이드 / 변경. 실제 결제 연동은 추후 구현 예정.',
+        description: '플랜 업그레이드 / 변경. 구독 즉시 크레딧 지급 (Pro: 500, Enterprise: 9999). 실제 결제 연동은 추후 구현 예정.',
         requestBody: {
           required: true,
           content: {
             'application/json': {
               schema: {
                 type: 'object',
-                required: ['plan', 'billingCycle'],
+                required: ['planId'],
                 properties: {
-                  plan:         { type: 'string', enum: ['pro', 'enterprise'], example: 'pro' },
-                  billingCycle: { type: 'string', enum: ['monthly', 'yearly'], example: 'monthly' },
+                  planId:  { type: 'string', enum: ['pro', 'enterprise'], example: 'pro' },
+                  billing: { type: 'string', enum: ['monthly', 'yearly'], default: 'monthly', example: 'monthly' },
                 },
               },
             },
           },
         },
         responses: {
-          200: { description: '구독 신청 성공', content: { 'application/json': { schema: { '$ref': '#/components/schemas/MessageResponse' } } } },
+          201: { description: '구독 신청 성공', content: { 'application/json': { schema: { '$ref': '#/components/schemas/MessageResponse' } } } },
+          400: { description: '올바르지 않은 플랜 ID', content: { 'application/json': { schema: { '$ref': '#/components/schemas/ErrorResponse' } } } },
           401: { '$ref': '#/components/responses/Unauthorized' },
         },
       },
@@ -1395,7 +1521,8 @@ const swaggerSpec = {
     '/api/editor/wav': {
       post: {
         tags: ['Editor'],
-        summary: 'WAV 변환 (Pro 이상)',
+        summary: 'WAV 변환',
+        description: 'MP3 트랙을 WAV(24bit/48kHz)로 변환합니다. 크레딧 **2개** 차감.',
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
@@ -1403,18 +1530,43 @@ const swaggerSpec = {
             'application/json': {
               schema: {
                 type: 'object',
-                required: ['audioId'],
+                required: ['trackId'],
                 properties: {
-                  audioId: { type: 'string' },
+                  trackId: { type: 'string', format: 'uuid', description: '변환할 트랙 ID (본인 소유, status=done)' },
                 },
               },
             },
           },
         },
         responses: {
-          202: { description: 'WAV 변환 작업 등록', content: { 'application/json': { schema: { allOf: [{ '$ref': '#/components/schemas/SuccessResponse' }, { properties: { data: { type: 'object', properties: { jobId: { type: 'string', format: 'uuid' } } } } }] } } } },
+          202: {
+            description: 'WAV 변환 작업 등록',
+            content: {
+              'application/json': {
+                schema: {
+                  allOf: [
+                    { '$ref': '#/components/schemas/SuccessResponse' },
+                    {
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            jobId:            { type: 'string', format: 'uuid' },
+                            sunoTaskId:       { type: 'string', description: 'Suno 내부 작업 ID' },
+                            creditsUsed:      { type: 'integer', example: 2 },
+                            creditsRemaining: { type: 'integer', example: 88 },
+                          },
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          402: { description: '크레딧 부족 (code: INSUFFICIENT_CREDITS)', content: { 'application/json': { schema: { '$ref': '#/components/schemas/ErrorResponse' } } } },
+          404: { '$ref': '#/components/responses/NotFound' },
           401: { '$ref': '#/components/responses/Unauthorized' },
-          403: { description: 'Pro 이상 플랜 필요', content: { 'application/json': { schema: { '$ref': '#/components/schemas/ErrorResponse' } } } },
         },
       },
     },
@@ -1422,10 +1574,34 @@ const swaggerSpec = {
       get: {
         tags: ['Editor'],
         summary: 'WAV 변환 상태 폴링',
+        description: '응답에 `Cache-Control: no-store` 헤더가 포함됩니다. 완료 시 `wavUrl`에 다운로드 URL을 반환합니다.',
         security: [{ bearerAuth: [] }],
         parameters: [{ name: 'jobId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
         responses: {
-          200: { description: '상태 + WAV URL', content: { 'application/json': { schema: { allOf: [{ '$ref': '#/components/schemas/SuccessResponse' }, { properties: { data: { type: 'object', properties: { status: { type: 'string', enum: ['pending','done','error'] }, resultUrl: { type: 'string', nullable: true } } } } }] } } } },
+          200: {
+            description: '상태 + WAV URL',
+            content: {
+              'application/json': {
+                schema: {
+                  allOf: [
+                    { '$ref': '#/components/schemas/SuccessResponse' },
+                    {
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            status: { type: 'string', enum: ['pending', 'done', 'error'] },
+                            wavUrl: { type: 'string', nullable: true, description: 'status=done 일 때 WAV 파일 URL' },
+                          },
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          404: { '$ref': '#/components/responses/NotFound' },
           401: { '$ref': '#/components/responses/Unauthorized' },
         },
       },
@@ -1435,6 +1611,7 @@ const swaggerSpec = {
       post: {
         tags: ['Editor'],
         summary: '뮤직비디오 생성',
+        description: '트랙 커버 이미지 + 오디오로 MP4 뮤직비디오를 생성합니다. 크레딧 **5개** 차감.',
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
@@ -1442,16 +1619,42 @@ const swaggerSpec = {
             'application/json': {
               schema: {
                 type: 'object',
-                required: ['audioId'],
+                required: ['trackId'],
                 properties: {
-                  audioId: { type: 'string' },
+                  trackId: { type: 'string', format: 'uuid', description: '변환할 트랙 ID (본인 소유, status=done)' },
                 },
               },
             },
           },
         },
         responses: {
-          202: { description: '비디오 생성 작업 등록', content: { 'application/json': { schema: { allOf: [{ '$ref': '#/components/schemas/SuccessResponse' }, { properties: { data: { type: 'object', properties: { jobId: { type: 'string', format: 'uuid' } } } } }] } } } },
+          202: {
+            description: '비디오 생성 작업 등록',
+            content: {
+              'application/json': {
+                schema: {
+                  allOf: [
+                    { '$ref': '#/components/schemas/SuccessResponse' },
+                    {
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            jobId:            { type: 'string', format: 'uuid' },
+                            sunoTaskId:       { type: 'string', description: 'Suno 내부 작업 ID' },
+                            creditsUsed:      { type: 'integer', example: 5 },
+                            creditsRemaining: { type: 'integer', example: 85 },
+                          },
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          402: { description: '크레딧 부족 (code: INSUFFICIENT_CREDITS)', content: { 'application/json': { schema: { '$ref': '#/components/schemas/ErrorResponse' } } } },
+          404: { '$ref': '#/components/responses/NotFound' },
           401: { '$ref': '#/components/responses/Unauthorized' },
         },
       },
@@ -1460,10 +1663,34 @@ const swaggerSpec = {
       get: {
         tags: ['Editor'],
         summary: '뮤직비디오 생성 상태 폴링',
+        description: '응답에 `Cache-Control: no-store` 헤더가 포함됩니다. 완료 시 `videoUrl`에 MP4 URL을 반환합니다.',
         security: [{ bearerAuth: [] }],
         parameters: [{ name: 'jobId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
         responses: {
-          200: { description: '상태 + MP4 URL', content: { 'application/json': { schema: { allOf: [{ '$ref': '#/components/schemas/SuccessResponse' }, { properties: { data: { type: 'object', properties: { status: { type: 'string', enum: ['pending','done','error'] }, resultUrl: { type: 'string', nullable: true } } } } }] } } } },
+          200: {
+            description: '상태 + MP4 URL',
+            content: {
+              'application/json': {
+                schema: {
+                  allOf: [
+                    { '$ref': '#/components/schemas/SuccessResponse' },
+                    {
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            status:   { type: 'string', enum: ['pending', 'done', 'error'] },
+                            videoUrl: { type: 'string', nullable: true, description: 'status=done 일 때 MP4 파일 URL' },
+                          },
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          404: { '$ref': '#/components/responses/NotFound' },
           401: { '$ref': '#/components/responses/Unauthorized' },
         },
       },
@@ -1475,13 +1702,13 @@ const swaggerSpec = {
         summary: '편집 작업 히스토리 조회',
         description:
           '로그인 유저의 모든 편집 작업 목록을 최신순으로 반환합니다.\n\n' +
-          '작업 유형: `separate` (악기/보컬 분리) / `wav` (WAV 변환) / `video` (뮤직비디오)\n\n' +
+          '작업 유형: `separate` (보컬/스템 분리) / `wav` (WAV 변환) / `video` (뮤직비디오) / `mixer` (믹스 설정)\n\n' +
           '상태: `pending` (처리 중) / `done` (완료) / `error` (실패)',
         security: [{ bearerAuth: [] }],
         parameters: [
           {
             name: 'type', in: 'query',
-            schema: { type: 'string', enum: ['separate', 'wav', 'video'] },
+            schema: { type: 'string', enum: ['separate', 'wav', 'video', 'mixer'] },
             description: '특정 작업 유형만 필터 (생략 시 전체 반환)',
           },
           {
@@ -1509,7 +1736,7 @@ const swaggerSpec = {
                                 type: 'object',
                                 properties: {
                                   id:          { type: 'string', format: 'uuid', description: 'Job ID (폴링에 사용)' },
-                                  type:        { type: 'string', enum: ['separate','wav','video'], example: 'separate' },
+                                  type:        { type: 'string', enum: ['separate','wav','video','mixer'], example: 'separate' },
                                   status:      { type: 'string', enum: ['pending','done','error'], example: 'done' },
                                   result_url:  { type: 'string', nullable: true, example: 'https://cdn.suno.ai/...', description: '완료 시 대표 결과 URL (separate는 instrumental 우선)' },
                                   extra:       { type: 'string', nullable: true, description: '추가 정보 (JSON 문자열, separate는 stems 맵 포함)' },
@@ -1532,20 +1759,165 @@ const swaggerSpec = {
       },
     },
 
+    '/api/editor/jobs/{jobId}': {
+      delete: {
+        tags: ['Editor'],
+        summary: '편집 작업 히스토리 항목 삭제',
+        description: '본인의 편집 작업 히스토리 항목을 삭제합니다. 실제 결과 파일(WAV/MP4 등)은 삭제되지 않습니다.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'jobId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: '삭제할 Job ID' },
+        ],
+        responses: {
+          200: { description: '삭제 성공', content: { 'application/json': { schema: { '$ref': '#/components/schemas/SuccessResponse' } } } },
+          404: { '$ref': '#/components/responses/NotFound' },
+          401: { '$ref': '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+
+    '/api/editor/mix/{trackId}': {
+      get: {
+        tags: ['Editor'],
+        summary: '믹스 설정 조회',
+        description: '에디터에서 저장한 스템별 볼륨/뮤트/솔로 설정을 불러옵니다. 저장 이력이 없으면 `stemConfig: null`을 반환합니다.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'trackId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: '트랙 ID' },
+        ],
+        responses: {
+          200: {
+            description: '믹스 설정 조회 성공',
+            content: {
+              'application/json': {
+                schema: {
+                  allOf: [
+                    { '$ref': '#/components/schemas/SuccessResponse' },
+                    {
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            stemConfig: {
+                              nullable: true,
+                              type: 'object',
+                              description: '스템 타입 → {volume, muted, solo} 맵. 저장 이력 없으면 null.',
+                              additionalProperties: {
+                                type: 'object',
+                                properties: {
+                                  volume: { type: 'number', minimum: 0, maximum: 1, example: 0.8 },
+                                  muted:  { type: 'boolean', example: false },
+                                  solo:   { type: 'boolean', example: false },
+                                },
+                              },
+                              example: {
+                                vocals:       { volume: 0.8, muted: false, solo: false },
+                                drums:        { volume: 1.0, muted: false, solo: false },
+                                instrumental: { volume: 0.6, muted: true,  solo: false },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          404: { '$ref': '#/components/responses/NotFound' },
+          401: { '$ref': '#/components/responses/Unauthorized' },
+        },
+      },
+      put: {
+        tags: ['Editor'],
+        summary: '믹스 설정 저장',
+        description: '에디터에서 조절한 스템별 볼륨/뮤트/솔로 설정을 저장합니다 (upsert). 이전 설정을 덮어씁니다.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'trackId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: '트랙 ID' },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['stemConfig'],
+                properties: {
+                  stemConfig: {
+                    type: 'object',
+                    description: '스템 타입 → {volume(0~1), muted, solo} 맵',
+                    additionalProperties: {
+                      type: 'object',
+                      required: ['volume', 'muted', 'solo'],
+                      properties: {
+                        volume: { type: 'number', minimum: 0, maximum: 1, example: 0.8 },
+                        muted:  { type: 'boolean', example: false },
+                        solo:   { type: 'boolean', example: false },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: '믹스 설정 저장 성공',
+            content: {
+              'application/json': {
+                schema: {
+                  allOf: [
+                    { '$ref': '#/components/schemas/SuccessResponse' },
+                    { properties: { data: { type: 'object', properties: { stemConfig: { type: 'object' } } } } },
+                  ],
+                },
+              },
+            },
+          },
+          400: { '$ref': '#/components/responses/BadRequest' },
+          404: { '$ref': '#/components/responses/NotFound' },
+          401: { '$ref': '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+
     '/api/editor/callback/{type}': {
       post: {
         tags: ['Editor'],
         summary: 'Suno 에디터 콜백 수신 (서버→서버)',
-        description: 'Suno AI가 편집 작업 완료 시 호출하는 웹훅. **프론트엔드에서 직접 호출 안 함.**',
+        description:
+          'Suno AI가 편집 작업 완료 시 우리 서버로 직접 호출하는 웹훅입니다.\n\n' +
+          '**프론트엔드에서 직접 호출하지 않습니다.** 인증 불필요.',
         parameters: [
-          { name: 'type', in: 'path', required: true, schema: { type: 'string', enum: ['separate','wav','video'] } },
+          { name: 'type', in: 'path', required: true, schema: { type: 'string', enum: ['separate', 'wav', 'video'] } },
         ],
         requestBody: {
           required: true,
-          content: { 'application/json': { schema: { type: 'object', properties: { code: { type: 'integer' }, msg: { type: 'string' }, data: { type: 'object' } } } } },
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                description: 'Suno가 `{ data: {...} }` 또는 flat `{ task_id, ... }` 두 형식으로 전송',
+                properties: {
+                  code: { type: 'integer', example: 200 },
+                  msg:  { type: 'string', example: 'SUCCESS' },
+                  data: {
+                    type: 'object',
+                    properties: {
+                      task_id:  { type: 'string', description: 'Suno 작업 ID' },
+                      response: { type: 'object', description: '작업 유형별 결과 데이터' },
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
         responses: {
-          200: { description: 'OK' },
+          200: { description: 'OK (항상 200 반환 — Suno 재시도 방지)' },
         },
         security: [],
       },
